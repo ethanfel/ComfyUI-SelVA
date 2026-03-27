@@ -171,19 +171,20 @@ class PrismAudioFeatureExtractor:
         if synchformer_ckpt:
             cmd.extend(["--synchformer_ckpt", synchformer_ckpt])
 
-        print(f"[PrismAudio] Extracting features via subprocess...")
+        print(f"[PrismAudio] Extracting features via subprocess (output streams live)...")
         try:
+            # capture_output=False: let stdout/stderr stream directly to ComfyUI logs
             result = subprocess.run(
                 cmd,
-                capture_output=True,
-                text=True,
+                capture_output=False,
                 timeout=600,  # 10 minute timeout
             )
             if result.returncode != 0:
                 raise RuntimeError(
-                    f"[PrismAudio] Feature extraction failed:\n{result.stderr}"
+                    f"[PrismAudio] Feature extraction subprocess exited with code {result.returncode}. "
+                    "See output above for details."
                 )
-            print(result.stdout)
+            print("[PrismAudio] Feature extraction subprocess finished successfully.")
         finally:
             if os.path.exists(tmp_video):
                 os.unlink(tmp_video)
