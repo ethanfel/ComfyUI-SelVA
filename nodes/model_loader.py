@@ -125,7 +125,9 @@ class PrismAudioModelLoader:
         # strict=False: vae.ckpt is a training checkpoint that also contains
         # discriminator, loss modules, and EMA wrappers not present in the
         # inference AudioAutoencoder — ignore those extra keys.
-        vae_result = model.pretransform.load_state_dict(vae_state, strict=False)
+        # Load directly into the inner AudioAutoencoder to get IncompatibleKeys back
+        # (AutoencoderPretransform.load_state_dict doesn't return the result)
+        vae_result = model.pretransform.model.load_state_dict(vae_state, strict=False)
         print(f"[PrismAudio] VAE load: missing={len(vae_result.missing_keys)}, unexpected={len(vae_result.unexpected_keys)}", flush=True)
         if vae_result.missing_keys:
             print(f"[PrismAudio]   VAE missing (first 10): {vae_result.missing_keys[:10]}", flush=True)
