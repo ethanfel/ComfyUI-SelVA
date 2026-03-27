@@ -88,6 +88,12 @@ class PrismAudioSampler:
             if not has_video:
                 _substitute_empty_features(diffusion, conditioning, device, dtype)
 
+            # Log conditioner output stats for each key
+            for ck, cv in conditioning.items():
+                if isinstance(cv, (list, tuple)) and len(cv) >= 1 and isinstance(cv[0], torch.Tensor):
+                    t = cv[0].float()
+                    print(f"[PrismAudio] cond[{ck}]: shape={tuple(t.shape)} mean={t.mean():.3f} std={t.std():.3f} min={t.min():.3f} max={t.max():.3f}", flush=True)
+
             # Assemble conditioning inputs for the DiT
             cond_inputs = diffusion.get_conditioning_inputs(conditioning)
 
