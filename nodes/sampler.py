@@ -118,6 +118,9 @@ class PrismAudioSampler:
                 batch_cfg=True,
             )
 
+            fakes_f = fakes.float()
+            print(f"[PrismAudio] latent stats: shape={tuple(fakes_f.shape)} mean={fakes_f.mean():.4f} std={fakes_f.std():.4f} min={fakes_f.min():.4f} max={fakes_f.max():.4f}", flush=True)
+
             # Offload diffusion model and conditioner before VAE decode
             if strategy == "offload_to_cpu":
                 diffusion.model.to(get_offload_device())
@@ -127,7 +130,7 @@ class PrismAudioSampler:
 
             # VAE decode in fp32 (snake activations overflow in fp16)
             with torch.amp.autocast(device_type=device.type, enabled=False):
-                audio = diffusion.pretransform.decode(fakes.float())
+                audio = diffusion.pretransform.decode(fakes_f)
 
             # Offload VAE
             if strategy == "offload_to_cpu":
@@ -136,8 +139,11 @@ class PrismAudioSampler:
 
         # Peak normalize then clamp (matching reference: div by max abs before clamp)
         audio = audio.float()
+        pre_norm_std = audio.std().item()
+        pre_norm_peak = audio.abs().max().item()
         peak = audio.abs().max().clamp(min=1e-8)
         audio = (audio / peak).clamp(-1, 1)
+        print(f"[PrismAudio] audio stats (pre-norm): std={pre_norm_std:.4f} peak={pre_norm_peak:.4f}", flush=True)
 
         # Return as ComfyUI AUDIO: {"waveform": [B, channels, samples], "sample_rate": int}
         return ({"waveform": audio.cpu(), "sample_rate": SAMPLE_RATE},)
