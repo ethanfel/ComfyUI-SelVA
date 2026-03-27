@@ -771,6 +771,7 @@ def create_diffusion_infill_from_config(config: tp.Dict[str, tp.Any]):
     
     elif model_type == "adp_uncond_1d":
 
+        io_channels = model_config.get("io_channels", 64)
         model = UNet1DUncondWrapper(
             io_channels = io_channels,
             **model_config
@@ -858,7 +859,7 @@ def create_diffusion_cond_from_config(config: tp.Dict[str, tp.Any]):
         extra_kwargs["diffusion_objective"] = diffusion_objective
         extra_kwargs["mm_cond_ids"] = mm_cond_ids
 
-    if model_type == "diffusion_cond" or model_type == "diffusion_cond_inpaint" or model_type == 'diffusion_infill':
+    elif model_type == "diffusion_cond" or model_type == "diffusion_cond_inpaint" or model_type == 'diffusion_infill':
         wrapper_fn = ConditionedDiffusionModelWrapper
         extra_kwargs["diffusion_objective"] = diffusion_objective
 

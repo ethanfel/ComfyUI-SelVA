@@ -162,6 +162,10 @@ def resample(video_feat, audio_latent):
     aligned_video = _build_spline(video_feat, video_time, audio_time)  # [B, D, Ta]
     return aligned_video.permute(0, 2, 1)  # [B, Ta, D]
 
+def checkpoint(function, *args, **kwargs):
+    kwargs.setdefault("use_reentrant", False)
+    return torch.utils.checkpoint.checkpoint(function, *args, **kwargs)
+
 import os
 enable_torch_compile = os.environ.get("ENABLE_TORCH_COMPILE", "0") == "1"
 
