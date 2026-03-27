@@ -133,8 +133,8 @@ class PrismAudioFeatureExtractor:
     CATEGORY = PRISMAUDIO_CATEGORY
 
     def extract_features(self, video, caption_cot, fps=30.0, python_env="python", cache_dir="", synchformer_ckpt=""):
-        # Resolve python binary — auto-install managed venv if using default
-        if python_env == "python":
+        # Resolve python binary — auto-install managed venv if empty or default
+        if not python_env.strip() or python_env.strip() == "python":
             python_env = _ensure_extract_env()
 
         # Determine cache directory
