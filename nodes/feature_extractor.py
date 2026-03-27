@@ -15,11 +15,22 @@ _MANAGED_PYTHON = os.path.join(_MANAGED_VENV, "bin", "python")
 
 _EXTRACT_PACKAGES = [
     "torch", "torchaudio", "torchvision",
-    "tensorflow-cpu==2.15.0",
+    # TF 2.15 only supports Python <=3.11; use >=2.16 for Python 3.12+
+    "tensorflow-cpu>=2.16.0",
     "jax[cpu]", "jaxlib",
     "transformers", "decord", "einops", "numpy", "mediapy",
     "git+https://github.com/google-deepmind/videoprism.git",
 ]
+
+
+def _pip_run(pip, *args):
+    """Run pip and stream output; raise with visible error on failure."""
+    result = subprocess.run([pip] + list(args), capture_output=False)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"[PrismAudio] pip {' '.join(args[:2])} failed (exit {result.returncode}). "
+            "Check the output above for details."
+        )
 
 
 def _ensure_extract_env():
@@ -27,14 +38,19 @@ def _ensure_extract_env():
     if os.path.exists(_MANAGED_PYTHON):
         return _MANAGED_PYTHON
 
+    import shutil
+    if os.path.exists(_MANAGED_VENV):
+        print("[PrismAudio] Removing incomplete venv and retrying...")
+        shutil.rmtree(_MANAGED_VENV)
+
     print("[PrismAudio] Feature-extraction env not found — creating venv at:", _MANAGED_VENV)
     subprocess.run([sys.executable, "-m", "venv", _MANAGED_VENV], check=True)
 
     pip = os.path.join(_MANAGED_VENV, "bin", "pip")
-    subprocess.run([pip, "install", "--upgrade", "pip"], check=True)
+    _pip_run(pip, "install", "--upgrade", "pip")
 
     print("[PrismAudio] Installing feature-extraction dependencies (this takes a few minutes)...")
-    subprocess.run([pip, "install"] + _EXTRACT_PACKAGES, check=True)
+    _pip_run(pip, "install", *_EXTRACT_PACKAGES)
 
     print("[PrismAudio] Feature-extraction env ready.")
     return _MANAGED_PYTHON

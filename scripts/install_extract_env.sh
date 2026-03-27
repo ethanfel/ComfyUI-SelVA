@@ -27,7 +27,7 @@ echo "[PrismAudio] Installing PyTorch stack..."
 
 echo "[PrismAudio] Installing feature-extraction dependencies..."
 "${PIP}" install \
-    "tensorflow-cpu==2.15.0" \
+    "tensorflow-cpu>=2.16.0" \
     "jax[cpu]" \
     "jaxlib" \
     "transformers" \
