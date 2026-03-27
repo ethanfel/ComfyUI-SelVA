@@ -1,4 +1,5 @@
 import os
+import sys
 import hashlib
 import subprocess
 import tempfile
@@ -6,6 +7,37 @@ import torch
 
 from .utils import PRISMAUDIO_CATEGORY
 from .feature_loader import PrismAudioFeatureLoader
+
+# Managed venv created automatically when python_env is left as default
+_PLUGIN_DIR = os.path.dirname(os.path.dirname(__file__))
+_MANAGED_VENV = os.path.join(_PLUGIN_DIR, "_extract_env")
+_MANAGED_PYTHON = os.path.join(_MANAGED_VENV, "bin", "python")
+
+_EXTRACT_PACKAGES = [
+    "torch", "torchaudio", "torchvision",
+    "tensorflow-cpu==2.15.0",
+    "jax[cpu]", "jaxlib",
+    "transformers", "decord", "einops", "numpy", "mediapy",
+    "git+https://github.com/google-deepmind/videoprism.git",
+]
+
+
+def _ensure_extract_env():
+    """Create and populate the managed venv on first use."""
+    if os.path.exists(_MANAGED_PYTHON):
+        return _MANAGED_PYTHON
+
+    print("[PrismAudio] Feature-extraction env not found — creating venv at:", _MANAGED_VENV)
+    subprocess.run([sys.executable, "-m", "venv", _MANAGED_VENV], check=True)
+
+    pip = os.path.join(_MANAGED_VENV, "bin", "pip")
+    subprocess.run([pip, "install", "--upgrade", "pip"], check=True)
+
+    print("[PrismAudio] Installing feature-extraction dependencies (this takes a few minutes)...")
+    subprocess.run([pip, "install"] + _EXTRACT_PACKAGES, check=True)
+
+    print("[PrismAudio] Feature-extraction env ready.")
+    return _MANAGED_PYTHON
 
 
 def _hash_inputs(video_tensor, cot_text):
@@ -34,7 +66,7 @@ class PrismAudioFeatureExtractor:
                 "caption_cot": ("STRING", {"default": "", "multiline": True, "tooltip": "Chain-of-thought description"}),
             },
             "optional": {
-                "python_env": ("STRING", {"default": "python", "tooltip": "Path to python binary with JAX/TF (e.g., /path/to/conda/envs/prismaudio-extract/bin/python)"}),
+                "python_env": ("STRING", {"default": "python", "tooltip": "Path to python binary with JAX/TF. Leave as 'python' to auto-install a managed venv on first use."}),
                 "cache_dir": ("STRING", {"default": "", "tooltip": "Directory to cache extracted features. Empty = temp dir"}),
                 "synchformer_ckpt": ("STRING", {"default": "", "tooltip": "Path to synchformer checkpoint (auto-resolved if empty)"}),
             },
@@ -46,6 +78,10 @@ class PrismAudioFeatureExtractor:
     CATEGORY = PRISMAUDIO_CATEGORY
 
     def extract_features(self, video, caption_cot, python_env="python", cache_dir="", synchformer_ckpt=""):
+        # Resolve python binary — auto-install managed venv if using default
+        if python_env == "python":
+            python_env = _ensure_extract_env()
+
         # Determine cache directory
         if not cache_dir:
             cache_dir = os.path.join(tempfile.gettempdir(), "prismaudio_features")
