@@ -78,12 +78,37 @@ def _hash_inputs(video_tensor, cot_text):
 
 
 def _save_video_tensor_to_mp4(video_tensor, output_path, fps=30):
-    """Save ComfyUI IMAGE tensor [T,H,W,C] to MP4."""
-    import torchvision.io as tvio
-    # ComfyUI IMAGE is [T,H,W,C] float32 [0,1]
-    frames = (video_tensor * 255).to(torch.uint8)
-    # torchvision write_video expects [T,H,W,C] uint8
-    tvio.write_video(output_path, frames, fps=fps)
+    """Save ComfyUI IMAGE tensor [T,H,W,C] to MP4 via PIL + ffmpeg.
+
+    torchvision.io.write_video requires the optional 'av' (PyAV) package
+    which is not installed in most ComfyUI environments. ffmpeg is always
+    available in ComfyUI Docker images.
+    """
+    from PIL import Image
+    import shutil
+
+    frames_np = (video_tensor.cpu().numpy() * 255).astype("uint8")
+
+    frame_dir = output_path + "_frames"
+    os.makedirs(frame_dir, exist_ok=True)
+    try:
+        for i, frame in enumerate(frames_np):
+            Image.fromarray(frame).save(os.path.join(frame_dir, f"{i:06d}.png"))
+
+        result = subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-framerate", str(fps),
+                "-i", os.path.join(frame_dir, "%06d.png"),
+                "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                output_path,
+            ],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"[PrismAudio] ffmpeg failed:\n{result.stderr}")
+    finally:
+        shutil.rmtree(frame_dir, ignore_errors=True)
 
 
 class PrismAudioFeatureExtractor:
