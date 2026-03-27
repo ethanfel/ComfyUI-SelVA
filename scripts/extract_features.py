@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 """
 Standalone PrismAudio feature extraction script.
-Run in a separate conda env with JAX/TF installed.
+Runs in a separate Python env with JAX/TF installed (auto-created by PrismAudioFeatureExtractor).
 
 Usage:
     python extract_features.py --video input.mp4 --cot_text "description..." --output features.npz
-
-Setup:
-    conda env create -f environment.yml
-    conda activate prismaudio-extract
 """
 
 import argparse
@@ -16,6 +12,12 @@ import os
 import sys
 import numpy as np
 import torch
+
+# Add plugin root to sys.path so data_utils (and prismaudio_core) are importable
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PLUGIN_DIR = os.path.dirname(_SCRIPT_DIR)
+if _PLUGIN_DIR not in sys.path:
+    sys.path.insert(0, _PLUGIN_DIR)
 
 
 def main():
