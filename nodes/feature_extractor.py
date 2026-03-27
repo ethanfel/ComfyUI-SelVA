@@ -170,6 +170,13 @@ class PrismAudioFeatureExtractor:
             "--cot_text", caption_cot,
             "--output", cached_path,
         ]
+        # Auto-resolve synchformer checkpoint from the prismaudio models dir
+        if not synchformer_ckpt:
+            import folder_paths
+            candidate = os.path.join(folder_paths.models_dir, "prismaudio", "synchformer_state_dict.pth")
+            if os.path.exists(candidate):
+                synchformer_ckpt = candidate
+                print(f"[PrismAudio] Auto-resolved synchformer checkpoint: {synchformer_ckpt}", flush=True)
         if synchformer_ckpt:
             cmd.extend(["--synchformer_ckpt", synchformer_ckpt])
 
