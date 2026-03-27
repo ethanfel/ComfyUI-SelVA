@@ -15,7 +15,7 @@ class PrismAudioTextOnly:
         return {
             "required": {
                 "model": ("PRISMAUDIO_MODEL",),
-                "text_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "Text description for audio generation"}),
+                "text_prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "Detailed chain-of-thought description of the audio scene. Use long, descriptive text — e.g. 'A large dog barks sharply twice, with ambient outdoor background noise. The sound is clear and close.' Short prompts produce lower quality."}),
                 "duration": ("FLOAT", {"default": 10.0, "min": 1.0, "max": 30.0, "step": 0.1}),
                 "steps": ("INT", {"default": 24, "min": 1, "max": 100}),
                 "cfg_scale": ("FLOAT", {"default": 5.0, "min": 1.0, "max": 20.0, "step": 0.1}),

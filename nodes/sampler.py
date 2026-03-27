@@ -144,22 +144,28 @@ class PrismAudioSampler:
 
 
 def _substitute_empty_features(diffusion, conditioning, device, dtype):
-    """Replace sync conditioning with learned empty embedding when video is absent.
+    """Replace video/sync conditioning with learned empty embeddings when video is absent.
 
-    Only substitutes sync_features — NOT video_features. The reference code
-    (predict.py/app.py) checks for 'metaclip_features' which doesn't exist in the
-    prismaudio.json config, so video substitution never runs. Cond_MLP with zero
-    input + bias-free linear layers naturally produces near-zero output.
+    empty_clip_feat and empty_sync_feat are learned null embeddings in the conditioner
+    output space (1024-dim). Passing zero features through bias-free Cond_MLP produces
+    near-zero activations, NOT the learned null signal the model was trained with.
 
     The conditioner returns {key: [tensor, mask]} where tensor is [B, seq, dim].
     """
     dit = diffusion.model.model if hasattr(diffusion.model, 'model') else diffusion.model
 
-    # Only substitute sync_features (matching reference behavior for prismaudio config)
+    # Substitute video_features with learned empty_clip_feat
+    if hasattr(dit, 'empty_clip_feat') and 'video_features' in conditioning:
+        empty = dit.empty_clip_feat.to(device, dtype=dtype)           # [1, 1024]
+        batch_size = conditioning['video_features'][0].shape[0]
+        empty_expanded = empty.unsqueeze(0).expand(batch_size, -1, -1)  # [B, 1, 1024]
+        conditioning['video_features'][0] = empty_expanded
+        conditioning['video_features'][1] = torch.ones(batch_size, 1, device=device)
+
+    # Substitute sync_features with learned empty_sync_feat
     if hasattr(dit, 'empty_sync_feat') and 'sync_features' in conditioning:
-        empty = dit.empty_sync_feat.to(device, dtype=dtype)
-        cond_tensor = conditioning['sync_features'][0]
-        batch_size = cond_tensor.shape[0]
-        empty_expanded = empty.unsqueeze(0).expand(batch_size, -1, -1)
+        empty = dit.empty_sync_feat.to(device, dtype=dtype)           # [1, 1024]
+        batch_size = conditioning['sync_features'][0].shape[0]
+        empty_expanded = empty.unsqueeze(0).expand(batch_size, -1, -1)  # [B, 1, 1024]
         conditioning['sync_features'][0] = empty_expanded
         conditioning['sync_features'][1] = torch.ones(batch_size, 1, device=device)
