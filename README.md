@@ -1,6 +1,6 @@
 # ComfyUI-PrismAudio
 
-Custom nodes for [PrismAudio](https://github.com/FunAudioLLM/ThinkSound) (ICLR 2026) — video-to-audio and text-to-audio generation using decomposed Chain-of-Thought reasoning with a 518M parameter DiT diffusion model and Stable Audio 2.0 VAE.
+Custom nodes for [PrismAudio](https://huggingface.co/FunAudioLLM/PrismAudio) (ICLR 2026) — video-to-audio and text-to-audio generation using decomposed Chain-of-Thought reasoning with a 518M parameter DiT diffusion model and Stable Audio 2.0 VAE.
 
 ## Installation
 
@@ -8,7 +8,7 @@ Clone into your ComfyUI custom nodes directory:
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone git@192.168.1.1:Ethanfel/ComfyUI-Prismaudio.git ComfyUI-PrismAudio
+git clone https://github.com/Ethanfel/ComfyUI-Prismaudio.git ComfyUI-PrismAudio
 pip install -r ComfyUI-PrismAudio/requirements.txt
 ```
 
@@ -153,4 +153,4 @@ T5-Gemma and VideoPrism LvT are cached in `~/.cache/huggingface/`.
 
 ## Credits
 
-PrismAudio by [FunAudioLLM](https://github.com/FunAudioLLM) (ICLR 2026). [Paper & code](https://github.com/FunAudioLLM/ThinkSound).
+PrismAudio by [FunAudioLLM](https://github.com/FunAudioLLM) (ICLR 2026). [Model & weights](https://huggingface.co/FunAudioLLM/PrismAudio).
