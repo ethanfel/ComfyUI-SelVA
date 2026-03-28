@@ -20,10 +20,6 @@ class PrismAudioSampler:
                 "cfg_scale": ("FLOAT", {"default": 5.0, "min": 1.0, "max": 20.0, "step": 0.1, "tooltip": "Classifier-free guidance scale"}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFF}),
             },
-            "optional": {
-                "debug_zero_video": ("BOOLEAN", {"default": False, "tooltip": "Zero out video_features (keep text+sync) — isolates video feature issues"}),
-                "debug_zero_sync": ("BOOLEAN", {"default": False, "tooltip": "Zero out sync_features (keep text+video) — isolates sync feature issues"}),
-            },
         }
 
     RETURN_TYPES = ("AUDIO",)
@@ -31,7 +27,7 @@ class PrismAudioSampler:
     FUNCTION = "generate"
     CATEGORY = PRISMAUDIO_CATEGORY
 
-    def generate(self, model, features, duration, steps, cfg_scale, seed, debug_zero_video=False, debug_zero_sync=False):
+    def generate(self, model, features, duration, steps, cfg_scale, seed):
         device = get_device()
         dtype = model["dtype"]
         strategy = model["strategy"]
@@ -48,21 +44,6 @@ class PrismAudioSampler:
 
         video_feat = features["video_features"].to(device, dtype=dtype)
         sync_feat  = features["sync_features"].to(device, dtype=dtype)
-
-        if debug_zero_video:
-            print("[PrismAudio] DEBUG: zeroing video_features", flush=True)
-            video_feat = torch.zeros_like(video_feat)
-            has_video = False
-        if debug_zero_sync:
-            print("[PrismAudio] DEBUG: zeroing sync_features", flush=True)
-            sync_feat = torch.zeros(8, 768, device=device, dtype=dtype)
-
-        vf_stats = features["video_features"]
-        sf_stats = features["sync_features"]
-        tf_stats = features["text_features"]
-        print(f"[PrismAudio] feature stats — video: shape={tuple(vf_stats.shape)} mean={vf_stats.float().mean():.3f} std={vf_stats.float().std():.3f}", flush=True)
-        print(f"[PrismAudio] feature stats — sync:  shape={tuple(sf_stats.shape)} mean={sf_stats.float().mean():.3f} std={sf_stats.float().std():.3f}", flush=True)
-        print(f"[PrismAudio] feature stats — text:  shape={tuple(tf_stats.shape)} mean={tf_stats.float().mean():.3f} std={tf_stats.float().std():.3f}", flush=True)
 
         # Build metadata as a TUPLE of dicts (one per batch sample)
         # MultiConditioner.forward(batch_metadata: List[Dict]) iterates over this
@@ -88,12 +69,6 @@ class PrismAudioSampler:
             if not has_video:
                 _substitute_empty_features(diffusion, conditioning, device, dtype)
 
-            # Log conditioner output stats for each key
-            for ck, cv in conditioning.items():
-                if isinstance(cv, (list, tuple)) and len(cv) >= 1 and isinstance(cv[0], torch.Tensor):
-                    t = cv[0].float()
-                    print(f"[PrismAudio] cond[{ck}]: shape={tuple(t.shape)} mean={t.mean():.3f} std={t.std():.3f} min={t.min():.3f} max={t.max():.3f}", flush=True)
-
             # Assemble conditioning inputs for the DiT
             cond_inputs = diffusion.get_conditioning_inputs(conditioning)
 
@@ -110,20 +85,6 @@ class PrismAudioSampler:
             pbar = comfy.utils.ProgressBar(steps)
 
             from prismaudio_core.inference.sampling import sample_discrete_euler
-
-            # Diagnostic: log DIT velocity at first step to verify model is working
-            t_diag = torch.ones([noise.shape[0]], dtype=noise.dtype, device=noise.device)
-            with torch.no_grad():
-                v_diag = diffusion.model(noise, t_diag, **cond_inputs, cfg_scale=cfg_scale, batch_cfg=True)
-                vd = v_diag.float()
-                print(f"[PrismAudio] DIT velocity@t=1: shape={tuple(vd.shape)} mean={vd.mean():.4f} std={vd.std():.4f} min={vd.min():.4f} max={vd.max():.4f}", flush=True)
-                # Also check uncond (cfg_scale=1.0) to verify conditioning is active
-                v_uncond = diffusion.model(noise, t_diag, **cond_inputs, cfg_scale=1.0, batch_cfg=True)
-                vu = v_uncond.float()
-                print(f"[PrismAudio] DIT velocity@t=1 uncond: mean={vu.mean():.4f} std={vu.std():.4f}", flush=True)
-                diff = (vd - vu).abs()
-                print(f"[PrismAudio] DIT cond-uncond diff: mean={diff.mean():.4f} max={diff.max():.4f}", flush=True)
-            del v_diag, v_uncond, vd, vu, diff
 
             def on_step(info):
                 pbar.update(1)
