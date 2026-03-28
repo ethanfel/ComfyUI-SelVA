@@ -95,7 +95,7 @@ class PrismAudioLoRALoader:
         # Merge LoRA weights in-place into the DiT's base linear layers.
         # ComfyUI re-executes the upstream ModelLoader on the next queue run
         # when inputs change, providing a fresh base model as needed.
-        dit = model["model"].model  # DiffusionTransformer
+        dit = model["model"].model  # DiTWrapper
 
         if strength == 0.0:
             print("[PrismAudio] LoRA strength=0.0 — skipping merge, base model unchanged.", flush=True)
