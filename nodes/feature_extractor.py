@@ -99,9 +99,8 @@ class PrismAudioFeatureExtractor:
             "optional": {
                 "video_info": ("VHS_VIDEOINFO", {"tooltip": "Connect VHS LoadVideo info output to auto-set fps."}),
                 "fps": ("FLOAT", {"default": 30.0, "min": 1.0, "max": 120.0, "step": 0.001, "tooltip": "Frame rate of the input video. Ignored if video_info is connected."}),
-                "python_env": ("STRING", {"default": "python", "tooltip": "Path to python binary with JAX/TF. Leave as 'python' to auto-install a managed venv on first use."}),
+                "python_env": (["managed_env", "comfyui_env"], {"tooltip": "managed_env: auto-created isolated venv with JAX/TF (recommended). comfyui_env: current ComfyUI Python — WARNING: may conflict with existing packages and destabilize ComfyUI."}),
                 "cache_dir": ("STRING", {"default": "", "tooltip": "Directory to cache extracted features. Empty = temp dir"}),
-                "synchformer_ckpt": ("STRING", {"default": "", "tooltip": "Path to synchformer checkpoint (auto-resolved if empty)"}),
                 "hf_token": ("STRING", {"default": "", "tooltip": "HuggingFace token for gated models (e.g. google/t5gemma). Get yours at huggingface.co/settings/tokens"}),
             },
         }
@@ -111,14 +110,18 @@ class PrismAudioFeatureExtractor:
     FUNCTION = "extract_features"
     CATEGORY = PRISMAUDIO_CATEGORY
 
-    def extract_features(self, video, caption_cot, video_info=None, fps=30.0, python_env="python", cache_dir="", synchformer_ckpt="", hf_token=""):
+    def extract_features(self, video, caption_cot, video_info=None, fps=30.0, python_env="managed_env", cache_dir="", hf_token=""):
         # Resolve fps from VHS video_info if connected
         if video_info is not None:
             fps = video_info["loaded_fps"]
 
-        # Resolve python binary — auto-install managed venv if empty or default
-        if not python_env.strip() or python_env.strip() == "python":
-            python_env = _ensure_extract_env()
+        # Resolve python binary
+        if python_env == "comfyui_env":
+            print("[PrismAudio] WARNING: using ComfyUI Python env — JAX/TF/videoprism must already be installed. "
+                  "Installing them here may conflict with existing packages and destabilize ComfyUI.", flush=True)
+            python_bin = sys.executable
+        else:
+            python_bin = _ensure_extract_env()
 
         # Determine cache directory
         if not cache_dir:
@@ -149,23 +152,23 @@ class PrismAudioFeatureExtractor:
             "scripts", "extract_features.py"
         )
 
+        import folder_paths
+        synchformer_ckpt = os.path.join(folder_paths.models_dir, "prismaudio", "synchformer_state_dict.pth")
+        if not os.path.exists(synchformer_ckpt):
+            raise RuntimeError(
+                f"[PrismAudio] Synchformer checkpoint not found: {synchformer_ckpt}\n"
+                "Download synchformer_state_dict.pth from FunAudioLLM/PrismAudio and place it in models/prismaudio/."
+            )
+
         cmd = [
-            python_env,
+            python_bin,
             script_path,
             "--video", tmp_video,
             "--cot_text", caption_cot,
             "--output", cached_path,
             "--source_fps", str(fps),
+            "--synchformer_ckpt", synchformer_ckpt,
         ]
-        # Auto-resolve synchformer checkpoint from the prismaudio models dir
-        if not synchformer_ckpt:
-            import folder_paths
-            candidate = os.path.join(folder_paths.models_dir, "prismaudio", "synchformer_state_dict.pth")
-            if os.path.exists(candidate):
-                synchformer_ckpt = candidate
-                print(f"[PrismAudio] Auto-resolved synchformer checkpoint: {synchformer_ckpt}", flush=True)
-        if synchformer_ckpt:
-            cmd.extend(["--synchformer_ckpt", synchformer_ckpt])
 
         # Build env: inherit current env, inject HF token if provided
         import copy
