@@ -105,7 +105,7 @@ class PrismAudioFeatureExtractor:
             },
         }
 
-    RETURN_TYPES = ("PRISMAUDIO_FEATURES", "INT")
+    RETURN_TYPES = ("PRISMAUDIO_FEATURES", "FLOAT")
     RETURN_NAMES = ("features", "fps")
     FUNCTION = "extract_features"
     CATEGORY = PRISMAUDIO_CATEGORY
@@ -135,7 +135,7 @@ class PrismAudioFeatureExtractor:
             print(f"[PrismAudio] Using cached features: {cached_path}")
             loader = PrismAudioFeatureLoader()
             features, = loader.load_features(cached_path)
-            return (features, round(fps))
+            return (features, float(fps))
 
         # Save frames to temp file (lossless .npy, no codec roundtrip)
         import time
