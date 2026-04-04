@@ -1,156 +1,123 @@
-# ComfyUI-PrismAudio
+# ComfyUI-SelVA
 
-Custom nodes for [PrismAudio](https://huggingface.co/FunAudioLLM/PrismAudio) (ICLR 2026) — video-to-audio and text-to-audio generation using decomposed Chain-of-Thought reasoning with a 518M parameter DiT diffusion model and Stable Audio 2.0 VAE.
+Custom nodes for [SelVA](https://github.com/jnwnlee/selva) — video-to-audio generation driven by text prompts. SelVA conditions audio synthesis on both visual content and natural language, letting you describe *what* sounds to generate rather than just *when*.
 
-## Installation
+Built on [MMAudio](https://github.com/hkchengrex/MMAudio) with a TextSynchformer encoder that injects text guidance directly into the visual sync stream.
 
-Clone into your ComfyUI custom nodes directory:
-
-```bash
-cd ComfyUI/custom_nodes
-git clone https://github.com/Ethanfel/ComfyUI-Prismaudio.git ComfyUI-PrismAudio
-pip install -r ComfyUI-PrismAudio/requirements.txt
-```
-
-**flash-attn** is optional — detected at runtime, falls back to PyTorch SDPA if unavailable.
+---
 
 ## Nodes
 
-### PrismAudio Model Loader
+### SelVA Model Loader
 
-Loads the DiT diffusion model and VAE. Auto-downloads weights from HuggingFace on first use.
+Loads the generator, TextSynchformer encoder, and all feature utilities (CLIP, T5, Synchformer, VAE). Weights are auto-downloaded from HuggingFace on first use.
 
 | Input | Options | Description |
 |-------|---------|-------------|
-| `precision` | auto / fp32 / fp16 / bf16 | DiT and conditioner dtype. VAE is always fp32. |
-| `offload_strategy` | auto / keep_in_vram / offload_to_cpu | Memory management. |
+| `variant` | small_16k / small_44k / medium_44k / large_44k | Model size and output sample rate |
+| `precision` | bf16 / fp16 / fp32 | Compute dtype |
+| `offload_strategy` | auto / keep_in_vram / offload_to_cpu | Memory management |
+
+**Output:** `model` (SELVA_MODEL)
 
 ---
 
-### PrismAudio Feature Extractor
+### SelVA Feature Extractor
 
-Extracts video features (VideoPrism LvT, Synchformer) and text features (T5-Gemma) from a video in a subprocess. Results are cached on disk.
+Extracts CLIP visual features and text-guided sync features from a video. Results are cached on disk — re-running with the same inputs is instant.
 
 | Input | Description |
 |-------|-------------|
+| `model` | From SelVA Model Loader |
 | `video` | IMAGE tensor from any ComfyUI video loader |
-| `caption_cot` | Chain-of-thought description of the audio scene |
-| `video_info` | *(optional)* `VHS_VIDEOINFO` from VHS LoadVideo — sets fps automatically |
+| `prompt` | Text description of the audio to generate |
+| `video_info` | *(optional)* VHS_VIDEOINFO from VHS LoadVideo — sets fps automatically |
 | `fps` | Source fps — ignored if `video_info` is connected |
-| `python_env` | `managed_env` (auto-created isolated venv, recommended) or `comfyui_env` (current Python, see warning below) |
-| `cache_dir` | Directory for cached `.npz` files. Empty = system temp dir. |
-| `hf_token` | HuggingFace token for gated models. Prefer `HF_TOKEN` env var instead. |
+| `duration` | Override clip duration in seconds. `0` = infer from video length |
+| `cache_dir` | Directory for cached `.npz` files. Empty = system temp dir |
 
-**Outputs:** `features` (PRISMAUDIO_FEATURES), `fps` (FLOAT)
+**Outputs:** `features` (SELVA_FEATURES), `fps` (FLOAT), `prompt` (STRING)
 
-**`managed_env`** auto-creates a venv at `_extract_env/` inside the plugin directory on first use and installs JAX, TF, VideoPrism, and Synchformer. This takes several minutes the first time.
-
-**`comfyui_env`** uses the current ComfyUI Python — JAX/TF/videoprism must already be installed. Installing them into the ComfyUI environment may conflict with existing packages.
+Connect `prompt` output to the Sampler's `prompt` input to avoid entering it twice.
 
 ---
 
-### PrismAudio Feature Loader
+### SelVA Sampler
 
-Loads a pre-computed `.npz` feature file. Use this to re-use extracted features without re-running the extractor.
-
-| Input | Description |
-|-------|-------------|
-| `npz_path` | Path to a `.npz` file produced by the Feature Extractor |
-
----
-
-### PrismAudio Sampler
-
-Video-to-audio generation. Takes model + features, produces AUDIO.
+Generates audio from video features. Runs the rectified flow ODE with classifier-free guidance.
 
 | Input | Description |
 |-------|-------------|
-| `model` | From Model Loader |
-| `features` | From Feature Extractor or Feature Loader |
-| `duration` | Audio duration in seconds. Set to `0` to use the video duration from features automatically. |
-| `steps` | Sampling steps (default: 100) |
-| `cfg_scale` | Classifier-free guidance scale (default: 7.0) |
+| `model` | From SelVA Model Loader |
+| `features` | From SelVA Feature Extractor |
+| `prompt` | Text description — leave empty to use the prompt stored in features |
+| `negative_prompt` | What to suppress (e.g. `"speech, voice, talking"`) |
+| `duration` | Audio duration in seconds. `0` = use duration from features |
+| `steps` | Sampling steps (default: 25) |
+| `cfg_strength` | Classifier-free guidance scale (default: 4.5) |
 | `seed` | RNG seed |
 
----
-
-### PrismAudio Text Only
-
-Text-to-audio generation without video. Uses the T5-Gemma encoder.
-
-| Input | Description |
-|-------|-------------|
-| `model` | From Model Loader |
-| `text_prompt` | Chain-of-thought audio scene description. Longer, more detailed prompts produce better results. |
-| `duration` | Audio duration in seconds |
-| `steps` | Sampling steps (default: 100) |
-| `cfg_scale` | Classifier-free guidance scale (default: 7.0) |
-| `seed` | RNG seed |
+**Output:** `AUDIO`
 
 ---
 
-## Workflows
-
-### Video-to-Audio
+## Workflow
 
 ```
-VHS LoadVideo ──► PrismAudio Feature Extractor ──► PrismAudio Sampler ──► Save Audio
-                         (video_info) ──────────────────► (fps auto)
-                         (features) ────────────────────► (features)
-                         duration=0 ─────────────────────► (auto from features)
+VHS LoadVideo ──► SelVA Feature Extractor ──────────────────────► SelVA Sampler ──► Save Audio
+                      │ (video_info) ─► (fps auto)                      ▲
+                      │ (features) ────────────────────────────────────►│
+                      │ (prompt) ──────────────────────────────────────►│
 ```
 
-### Pre-computed Features
+Connect the `prompt` output of Feature Extractor directly to Sampler's `prompt` to keep them in sync. Leave Sampler's `prompt` empty and it will use whatever was stored during extraction.
 
+---
+
+## Installation
+
+```bash
+cd ComfyUI/custom_nodes
+git clone https://github.com/Ethanfel/ComfyUI-SelVA.git
+pip install -r ComfyUI-SelVA/requirements.txt
 ```
-PrismAudio Feature Loader (.npz) ──► PrismAudio Sampler ──► Save Audio
-```
 
-### Text-to-Audio
+---
 
-```
-PrismAudio Text Only ──► Save Audio
-```
+## Model Weights
 
-## HuggingFace Authentication
-
-Required for T5-Gemma (gated model) and PrismAudio weights.
-
-1. Visit <https://huggingface.co/FunAudioLLM/PrismAudio> and accept the license.
-2. Authenticate via one of:
-   - **Environment variable:** `export HF_TOKEN=hf_...`
-   - **CLI login:** `huggingface-cli login`
-
-There is no `hf_token` widget on the main nodes by design — ComfyUI saves all STRING values to workflow JSON, which would expose your token. The Feature Extractor has an `hf_token` input as a convenience but using `HF_TOKEN` env var is preferred.
-
-## Model Files
-
-Weights are auto-downloaded to `ComfyUI/models/prismaudio/`:
+Weights are auto-downloaded to `ComfyUI/models/selva/` on first load. No manual setup required.
 
 | File | Size | Description |
 |------|------|-------------|
-| `prismaudio.ckpt` | ~2.7 GB | Diffusion model (DiT) |
-| `vae.ckpt` | ~2.5 GB | Stable Audio 2.0 VAE |
-| `synchformer_state_dict.pth` | ~950 MB | Synchformer visual encoder |
+| `video_enc_sup_5.pth` | ~300 MB | TextSynchformer encoder |
+| `generator_small_16k_sup_5.pth` | ~340 MB | Small generator, 16 kHz output |
+| `generator_small_44k_sup_5.pth` | ~340 MB | Small generator, 44.1 kHz output |
+| `generator_medium_44k_sup_5.pth` | ~860 MB | Medium generator, 44.1 kHz output |
+| `generator_large_44k_sup_5.pth` | ~2.0 GB | Large generator, 44.1 kHz output |
+| `v1-16.pth` | ~1.1 GB | VAE for 16 kHz |
+| `v1-44.pth` | ~1.1 GB | VAE for 44.1 kHz |
+| `best_netG.pt` | ~90 MB | BigVGAN vocoder for 16 kHz |
+| `synchformer_state_dict.pth` | ~950 MB | Synchformer (shared with PrismAudio if present) |
 
-T5-Gemma and VideoPrism LvT are cached in `~/.cache/huggingface/`.
+CLIP (DFN5B-ViT-H-14-384) and T5 (flan-t5-base) are downloaded automatically from HuggingFace to `~/.cache/huggingface/`.
+
+---
 
 ## VRAM Requirements
 
 | VRAM | Recommended settings |
 |------|----------------------|
-| 24 GB+ | `keep_in_vram`, any precision |
-| 12–24 GB | `offload_to_cpu`, bf16/fp16 |
-| 8–12 GB | `offload_to_cpu`, fp16 |
-| < 8 GB | May work with `offload_to_cpu` + fp16 |
+| 24 GB+ | `keep_in_vram`, any variant |
+| 12–24 GB | `offload_to_cpu`, medium or smaller |
+| 8–12 GB | `offload_to_cpu`, small variant, fp16 |
 
-## Troubleshooting
+The `auto` offload strategy picks `keep_in_vram` if ≥ 16 GB VRAM is available, otherwise `offload_to_cpu`.
 
-- **Gated model errors** — Accept the license at <https://huggingface.co/FunAudioLLM/PrismAudio> and set `HF_TOKEN`.
-- **VRAM errors** — Switch `offload_strategy` to `offload_to_cpu` and/or use `fp16` precision.
-- **Feature extraction fails** — Ensure `synchformer_state_dict.pth` is in `models/prismaudio/`. On first run with `managed_env`, installation takes several minutes.
-- **flash-attn** — Optional. Auto-detected at runtime; falls back to PyTorch SDPA.
+---
 
 ## Credits
 
-PrismAudio by [FunAudioLLM](https://github.com/FunAudioLLM) (ICLR 2026). [Model & weights](https://huggingface.co/FunAudioLLM/PrismAudio).
+- [SelVA](https://github.com/jnwnlee/selva) by Jaehwan Lee et al. — TextSynchformer and SelVA training
+- [MMAudio](https://github.com/hkchengrex/MMAudio) by Feng et al. — MM-DiT audio generator and flow matching framework
+- [BigVGAN](https://github.com/NVIDIA/BigVGAN) by NVIDIA — neural vocoder for 16 kHz synthesis
