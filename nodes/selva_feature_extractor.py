@@ -150,6 +150,7 @@ class SelvaFeatureExtractor:
             clip_features=clip_features.cpu().float().numpy(),
             sync_features=sync_features.cpu().float().numpy(),
             duration=float(duration),
+            prompt=np.array(prompt),
         )
         print(f"[SelVA] Features cached: {cached_path}", flush=True)
 
@@ -157,13 +158,17 @@ class SelvaFeatureExtractor:
             "clip_features": clip_features.cpu(),
             "sync_features": sync_features.cpu(),
             "duration": float(duration),
+            "prompt": prompt,
         }, float(fps))
 
 
 def _load_cached(path):
     data = np.load(path, allow_pickle=False)
-    return {
+    features = {
         "clip_features": torch.from_numpy(data["clip_features"]),
         "sync_features": torch.from_numpy(data["sync_features"]),
         "duration": float(data["duration"]),
     }
+    if "prompt" in data:
+        features["prompt"] = str(data["prompt"])
+    return features

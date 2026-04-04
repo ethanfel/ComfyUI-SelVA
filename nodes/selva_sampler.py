@@ -11,10 +11,6 @@ class SelvaSampler:
             "required": {
                 "model":    ("SELVA_MODEL",),
                 "features": ("SELVA_FEATURES",),
-                "prompt":   ("STRING", {
-                    "default": "", "multiline": True,
-                    "tooltip": "Should match the prompt used in SelvaFeatureExtractor.",
-                }),
                 "negative_prompt": ("STRING", {
                     "default": "", "multiline": True,
                     "tooltip": "Sounds to steer away from, e.g. 'wind noise, background music'.",
@@ -29,6 +25,12 @@ class SelvaSampler:
                                            "tooltip": "CFG scale (SelVA default is 4.5)."}),
                 "seed":     ("INT",   {"default": 0,   "min": 0,   "max": 0xFFFFFFFF}),
             },
+            "optional": {
+                "prompt":   ("STRING", {
+                    "default": "", "multiline": True,
+                    "tooltip": "CLIP text for audio generation. Leave empty to reuse the prompt from SelvaFeatureExtractor.",
+                }),
+            },
         }
 
     RETURN_TYPES = ("AUDIO",)
@@ -36,7 +38,7 @@ class SelvaSampler:
     FUNCTION = "generate"
     CATEGORY = PRISMAUDIO_CATEGORY
 
-    def generate(self, model, features, prompt, negative_prompt, duration, steps, cfg_strength, seed):
+    def generate(self, model, features, negative_prompt, duration, steps, cfg_strength, seed, prompt=None):
         from selva_core.model.flow_matching import FlowMatching
         from selva_core.model.sequence_config import SequenceConfig
 
@@ -46,6 +48,14 @@ class SelvaSampler:
         net_generator = model["generator"]
         feature_utils = model["feature_utils"]
         mode          = model["mode"]
+
+        # Resolve prompt: use override if given, otherwise fall back to features prompt
+        if not prompt or not prompt.strip():
+            prompt = features.get("prompt", "")
+            if prompt:
+                print(f"[SelVA] Using prompt from features: '{prompt[:60]}'", flush=True)
+            else:
+                print("[SelVA] Warning: no prompt in features or sampler — CLIP text conditioning will be empty.", flush=True)
 
         # Resolve duration
         if duration <= 0:
