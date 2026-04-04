@@ -7,6 +7,9 @@ _NODES = {
     "PrismAudioFeatureExtractor": (".feature_extractor", "PrismAudioFeatureExtractor", "PrismAudio Feature Extractor"),
     "PrismAudioSampler": (".sampler", "PrismAudioSampler", "PrismAudio Sampler"),
     "PrismAudioTextOnly": (".text_only", "PrismAudioTextOnly", "PrismAudio Text Only"),
+    "SelvaModelLoader":       (".selva_model_loader",       "SelvaModelLoader",       "SelVA Model Loader"),
+    "SelvaFeatureExtractor":  (".selva_feature_extractor",  "SelvaFeatureExtractor",  "SelVA Feature Extractor"),
+    "SelvaSampler":           (".selva_sampler",            "SelvaSampler",           "SelVA Sampler"),
 }
 
 for key, (module_path, class_name, display_name) in _NODES.items():
