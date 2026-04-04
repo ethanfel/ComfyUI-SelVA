@@ -93,12 +93,13 @@ class SelvaSampler:
                 bs=1, negative_text_features=neg_text_clip
             )
 
-            # Initial noise
-            rng = torch.Generator(device=device).manual_seed(seed)
+            # Initial noise (MPS doesn't support torch.Generator on device)
+            gen_device = "cpu" if device.type == "mps" else device
+            rng = torch.Generator(device=gen_device).manual_seed(seed)
             x0 = torch.randn(
                 1, seq_cfg.latent_seq_len, net_generator.latent_dim,
-                device=device, dtype=dtype, generator=rng,
-            )
+                device=gen_device, dtype=dtype, generator=rng,
+            ).to(device)
 
             # Flow matching ODE (Euler)
             fm = FlowMatching(min_sigma=0, inference_mode="euler", num_steps=steps)

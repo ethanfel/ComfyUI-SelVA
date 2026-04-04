@@ -34,11 +34,12 @@ def _resize_frames(frames, size):
     return x.clamp(0.0, 1.0)  # [N, C, H, W]
 
 
-def _hash_inputs(video_tensor, prompt, fps, variant):
+def _hash_inputs(video_tensor, prompt, fps, duration, variant):
     h = hashlib.sha256()
     h.update(video_tensor.cpu().numpy().tobytes()[:1024 * 1024])
     h.update(prompt.encode())
     h.update(str(fps).encode())
+    h.update(str(round(duration, 3)).encode())  # resolved duration affects frame count
     h.update(variant.encode())
     return h.hexdigest()[:16]
 
@@ -86,7 +87,7 @@ class SelvaFeatureExtractor:
         if not cache_dir:
             cache_dir = os.path.join(tempfile.gettempdir(), "selva_features")
         os.makedirs(cache_dir, exist_ok=True)
-        cache_key = _hash_inputs(video, prompt, fps, model["variant"])
+        cache_key = _hash_inputs(video, prompt, fps, duration, model["variant"])
         cached_path = os.path.join(cache_dir, f"{cache_key}.npz")
 
         if os.path.exists(cached_path):
