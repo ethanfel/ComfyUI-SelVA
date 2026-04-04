@@ -17,13 +17,42 @@ _SELVA_DIR = Path(folder_paths.models_dir) / "selva"
 _PRISMAUDIO_DIR = Path(folder_paths.models_dir) / "prismaudio"
 
 
+_HF_REPO = "jnwnlee/SelVA"
+
+# Local filename → path inside the HF repo
+_HF_PATHS = {
+    "video_enc_sup_5.pth":           "weights/video_enc_sup_5.pth",
+    "generator_small_16k_sup_5.pth": "weights/generator_small_16k_sup_5.pth",
+    "generator_small_44k_sup_5.pth": "weights/generator_small_44k_sup_5.pth",
+    "generator_medium_44k_sup_5.pth":"weights/generator_medium_44k_sup_5.pth",
+    "generator_large_44k_sup_5.pth": "weights/generator_large_44k_sup_5.pth",
+    "v1-16.pth":                     "ext_weights/v1-16.pth",
+    "v1-44.pth":                     "ext_weights/v1-44.pth",
+    "best_netG.pt":                  "ext_weights/best_netG.pt",
+    "synchformer_state_dict.pth":    "ext_weights/synchformer_state_dict.pth",
+}
+
+
 def _ensure(filename, subdir=None):
-    """Return path to weight file, downloading it if missing."""
-    from selva_core.utils.download_utils import download_model_if_needed
+    """Return path to weight file, downloading via huggingface_hub if missing."""
+    import shutil
+    from huggingface_hub import hf_hub_download
+
     dest_dir = _SELVA_DIR / subdir if subdir else _SELVA_DIR
-    path = dest_dir / filename
-    download_model_if_needed(path)
-    return str(path)
+    dest_path = dest_dir / filename
+    if dest_path.exists():
+        return str(dest_path)
+
+    repo_path = _HF_PATHS.get(filename)
+    if repo_path is None:
+        raise ValueError(f"[SelVA] Unknown weight file: {filename}")
+
+    print(f"[SelVA] Downloading {filename} from {_HF_REPO}...", flush=True)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    cached = hf_hub_download(repo_id=_HF_REPO, filename=repo_path)
+    shutil.copy2(cached, dest_path)
+    print(f"[SelVA] Saved to {dest_path}", flush=True)
+    return str(dest_path)
 
 
 def _synchformer_path():
@@ -31,7 +60,6 @@ def _synchformer_path():
     prismaudio_path = _PRISMAUDIO_DIR / "synchformer_state_dict.pth"
     if prismaudio_path.exists():
         return str(prismaudio_path)
-    # Not downloaded for PrismAudio yet — download to models/selva/
     return _ensure("synchformer_state_dict.pth")
 
 
