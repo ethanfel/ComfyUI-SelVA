@@ -87,9 +87,15 @@ class SelvaModelLoader:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "variant": (list(_VARIANTS.keys()),),
-                "precision": (["bf16", "fp16", "fp32"],),
-                "offload_strategy": (["auto", "keep_in_vram", "offload_to_cpu"],),
+                "variant": (list(_VARIANTS.keys()), {
+                    "tooltip": "Model size and output sample rate. small_16k is fastest (16 kHz). 44k variants output 44.1 kHz. larger = better quality, more VRAM.",
+                }),
+                "precision": (["bf16", "fp16", "fp32"], {
+                    "tooltip": "Compute dtype. bf16 is recommended on Ampere+ GPUs. fp16 for older NVIDIA hardware. fp32 if you see NaN outputs.",
+                }),
+                "offload_strategy": (["auto", "keep_in_vram", "offload_to_cpu"], {
+                    "tooltip": "auto picks keep_in_vram if ≥16 GB VRAM is free, otherwise offload_to_cpu. offload_to_cpu moves weights to RAM between nodes, saving VRAM at the cost of speed.",
+                }),
             }
         }
 

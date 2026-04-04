@@ -58,15 +58,19 @@ class SelvaFeatureExtractor:
                 "video":  ("IMAGE",),
                 "prompt": ("STRING", {
                     "default": "", "multiline": True,
-                    "tooltip": "Text prompt used by TextSynchformer to focus sync features on the relevant sound source. Should match the prompt used in SelvaSampler.",
+                    "tooltip": "Describes the sounds to generate. Used to focus the visual sync features on motion relevant to the prompt — more specific prompts produce cleaner audio sync. Wire the prompt output directly to the Sampler so you only type it once.",
                 }),
             },
             "optional": {
-                "video_info": ("VHS_VIDEOINFO", {"tooltip": "Connect VHS LoadVideo info to auto-set fps."}),
-                "fps":      ("FLOAT", {"default": 30.0, "min": 1.0, "max": 120.0, "step": 0.001}),
+                "video_info": ("VHS_VIDEOINFO", {
+                    "tooltip": "VHS_VIDEOINFO from VHS LoadVideo. Automatically sets the correct source fps — always connect this when loading video with VHS nodes.",
+                }),
+                "fps":      ("FLOAT", {"default": 30.0, "min": 1.0, "max": 120.0, "step": 0.001,
+                                       "tooltip": "Source fps of the input video. Ignored when video_info is connected."}),
                 "duration": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 30.0, "step": 0.1,
-                                       "tooltip": "Override duration in seconds. 0 = infer from video length and fps."}),
-                "cache_dir": ("STRING", {"default": "", "tooltip": "Directory for cached .npz features. Empty = temp dir."}),
+                                       "tooltip": "Clip duration in seconds. 0 = use the full video length. Clamped to actual video length if too long."}),
+                "cache_dir": ("STRING", {"default": "",
+                                         "tooltip": "Where to store extracted feature files (.npz). Leave empty for the system temp directory. Reusing the same directory enables instant cache hits on re-runs."}),
             },
         }
 
