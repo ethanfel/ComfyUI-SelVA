@@ -1,0 +1,114 @@
+{
+  "id": "selva-video-to-audio-v1",
+  "revision": 0,
+  "last_node_id": 6,
+  "last_link_id": 8,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "VHS_LoadVideo",
+      "pos": [-640, -160],
+      "size": [288, 474],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "IMAGE",       "type": "IMAGE",         "slot_index": 0, "links": [1]},
+        {"name": "frame_count", "type": "INT",           "slot_index": 1, "links": []},
+        {"name": "audio",       "type": "AUDIO",         "slot_index": 2, "links": []},
+        {"name": "video_info",  "type": "VHS_VIDEOINFO", "slot_index": 3, "links": [2]}
+      ],
+      "properties": {"Node name for S&R": "VHS_LoadVideo"}
+    },
+    {
+      "id": 2,
+      "type": "SelvaModelLoader",
+      "pos": [-640, 360],
+      "size": [288, 130],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {"name": "model", "type": "SELVA_MODEL", "slot_index": 0, "links": [3, 4]}
+      ],
+      "widgets_values": ["medium_44k", "bf16", "auto"],
+      "properties": {"Node name for S&R": "SelvaModelLoader"}
+    },
+    {
+      "id": 3,
+      "type": "SelvaFeatureExtractor",
+      "pos": [-256, -160],
+      "size": [320, 200],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {"name": "model",      "type": "SELVA_MODEL",   "link": 3},
+        {"name": "video",      "type": "IMAGE",          "link": 1},
+        {"name": "prompt",     "type": "STRING",         "link": null, "widget": {"name": "prompt"}},
+        {"name": "video_info", "type": "VHS_VIDEOINFO",  "link": 2},
+        {"name": "fps",        "type": "FLOAT",          "link": null, "widget": {"name": "fps"}},
+        {"name": "duration",   "type": "FLOAT",          "link": null, "widget": {"name": "duration"}},
+        {"name": "cache_dir",  "type": "STRING",         "link": null, "widget": {"name": "cache_dir"}}
+      ],
+      "outputs": [
+        {"name": "features", "type": "SELVA_FEATURES", "slot_index": 0, "links": [5]},
+        {"name": "fps",      "type": "FLOAT",           "slot_index": 1, "links": []}
+      ],
+      "widgets_values": ["dog barking", 30.0, 0.0, ""],
+      "properties": {"Node name for S&R": "SelvaFeatureExtractor"}
+    },
+    {
+      "id": 4,
+      "type": "SelvaSampler",
+      "pos": [128, -160],
+      "size": [320, 280],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {"name": "model",           "type": "SELVA_MODEL",   "link": 4},
+        {"name": "features",        "type": "SELVA_FEATURES","link": 5},
+        {"name": "prompt",          "type": "STRING",        "link": null, "widget": {"name": "prompt"}},
+        {"name": "negative_prompt", "type": "STRING",        "link": null, "widget": {"name": "negative_prompt"}},
+        {"name": "duration",        "type": "FLOAT",         "link": null, "widget": {"name": "duration"}},
+        {"name": "steps",           "type": "INT",           "link": null, "widget": {"name": "steps"}},
+        {"name": "cfg_strength",    "type": "FLOAT",         "link": null, "widget": {"name": "cfg_strength"}},
+        {"name": "seed",            "type": "INT",           "link": null, "widget": {"name": "seed"}}
+      ],
+      "outputs": [
+        {"name": "audio", "type": "AUDIO", "slot_index": 0, "links": [6]}
+      ],
+      "widgets_values": ["dog barking", "", 0.0, 25, 4.5, 0],
+      "properties": {"Node name for S&R": "SelvaSampler"}
+    },
+    {
+      "id": 5,
+      "type": "PreviewAudio",
+      "pos": [512, -160],
+      "size": [288, 100],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {"name": "audio", "type": "AUDIO", "link": 6}
+      ],
+      "outputs": [],
+      "properties": {"Node name for S&R": "PreviewAudio"}
+    }
+  ],
+  "links": [
+    [1, 1, 0, 3, 1, "IMAGE"],
+    [2, 1, 3, 3, 3, "VHS_VIDEOINFO"],
+    [3, 2, 0, 3, 0, "SELVA_MODEL"],
+    [4, 2, 0, 4, 0, "SELVA_MODEL"],
+    [5, 3, 0, 4, 1, "SELVA_FEATURES"],
+    [6, 4, 0, 5, 0, "AUDIO"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {"ds": {"scale": 1.0, "offset": [0, 0]}},
+  "version": 0.4
+}
