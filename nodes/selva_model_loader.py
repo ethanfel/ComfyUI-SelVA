@@ -19,33 +19,48 @@ _PRISMAUDIO_DIR = Path(folder_paths.models_dir) / "prismaudio"
 
 _HF_REPO = "jnwnlee/SelVA"
 
-# Local filename → path inside the HF repo
-_HF_PATHS = {
-    "video_enc_sup_5.pth":           "weights/video_enc_sup_5.pth",
-    "generator_small_16k_sup_5.pth": "weights/generator_small_16k_sup_5.pth",
-    "generator_small_44k_sup_5.pth": "weights/generator_small_44k_sup_5.pth",
-    "generator_medium_44k_sup_5.pth":"weights/generator_medium_44k_sup_5.pth",
-    "generator_large_44k_sup_5.pth": "weights/generator_large_44k_sup_5.pth",
-    "v1-16.pth":                     "ext_weights/v1-16.pth",
-    "v1-44.pth":                     "ext_weights/v1-44.pth",
-    "best_netG.pt":                  "ext_weights/best_netG.pt",
-    "synchformer_state_dict.pth":    "ext_weights/synchformer_state_dict.pth",
+# filename → (hf_repo_path, expected_md5)
+_WEIGHTS = {
+    "video_enc_sup_5.pth":           ("weights/video_enc_sup_5.pth",           "ff09a6dc36148536ee4db97eba081d05"),
+    "generator_small_16k_sup_5.pth": ("weights/generator_small_16k_sup_5.pth", "1cb0f0deec52de37f67b1fd9965337d0"),
+    "generator_small_44k_sup_5.pth": ("weights/generator_small_44k_sup_5.pth", "d4df8569624093ac80af99b8b7434525"),
+    "generator_medium_44k_sup_5.pth":("weights/generator_medium_44k_sup_5.pth","e9157e62b4863ad306e89e8f3a587748"),
+    "generator_large_44k_sup_5.pth": ("weights/generator_large_44k_sup_5.pth", "ab3db08b124d3aaa53eb7a1f52f1fb3f"),
+    "v1-16.pth":                     ("ext_weights/v1-16.pth",                 "69f56803f59a549a1a507c93859fd4d7"),
+    "v1-44.pth":                     ("ext_weights/v1-44.pth",                 "fab020275fa44c6589820ce025191600"),
+    "best_netG.pt":                  ("ext_weights/best_netG.pt",              "eeaf372a38a9c31c362120aba2dde292"),
+    "synchformer_state_dict.pth":    ("ext_weights/synchformer_state_dict.pth","5b2f5594b0730f70e41e549b7c94390c"),
 }
 
 
+def _md5(path):
+    import hashlib
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8 * 1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def _ensure(filename, subdir=None):
-    """Return path to weight file, downloading via huggingface_hub if missing."""
+    """Return path to weight file. Re-downloads if missing or MD5 mismatch."""
     import shutil
     from huggingface_hub import hf_hub_download
 
     dest_dir = _SELVA_DIR / subdir if subdir else _SELVA_DIR
     dest_path = dest_dir / filename
-    if dest_path.exists():
-        return str(dest_path)
 
-    repo_path = _HF_PATHS.get(filename)
-    if repo_path is None:
+    entry = _WEIGHTS.get(filename)
+    if entry is None:
         raise ValueError(f"[SelVA] Unknown weight file: {filename}")
+    repo_path, expected_md5 = entry
+
+    if dest_path.exists():
+        actual = _md5(dest_path)
+        if actual == expected_md5:
+            return str(dest_path)
+        print(f"[SelVA] {filename}: MD5 mismatch ({actual} ≠ {expected_md5}), re-downloading...", flush=True)
+        dest_path.unlink()
 
     print(f"[SelVA] Downloading {filename} from {_HF_REPO}...", flush=True)
     dest_dir.mkdir(parents=True, exist_ok=True)
