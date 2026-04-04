@@ -11,9 +11,9 @@ class SelvaSampler:
             "required": {
                 "model":    ("SELVA_MODEL",),
                 "features": ("SELVA_FEATURES",),
-                "negative_prompt": ("STRING", {
+                "prompt":   ("STRING", {
                     "default": "", "multiline": True,
-                    "tooltip": "Sounds to steer away from, e.g. 'wind noise, background music'.",
+                    "tooltip": "CLIP text for audio generation. Leave empty to reuse the prompt from SelvaFeatureExtractor.",
                 }),
                 "duration": ("FLOAT", {
                     "default": 0.0, "min": 0.0, "max": 30.0, "step": 0.1,
@@ -26,9 +26,9 @@ class SelvaSampler:
                 "seed":     ("INT",   {"default": 0,   "min": 0,   "max": 0xFFFFFFFF}),
             },
             "optional": {
-                "prompt":   ("STRING", {
+                "negative_prompt": ("STRING", {
                     "default": "", "multiline": True,
-                    "tooltip": "CLIP text for audio generation. Leave empty to reuse the prompt from SelvaFeatureExtractor.",
+                    "tooltip": "Sounds to steer away from, e.g. 'wind noise, background music'.",
                 }),
             },
         }
@@ -38,7 +38,7 @@ class SelvaSampler:
     FUNCTION = "generate"
     CATEGORY = PRISMAUDIO_CATEGORY
 
-    def generate(self, model, features, negative_prompt, duration, steps, cfg_strength, seed, prompt=None):
+    def generate(self, model, features, prompt, duration, steps, cfg_strength, seed, negative_prompt=None):
         from selva_core.model.flow_matching import FlowMatching
         from selva_core.model.sequence_config import SequenceConfig
 
@@ -96,7 +96,7 @@ class SelvaSampler:
 
             # Encode negative prompt (or use empty conditions)
             neg_text_clip = feature_utils.encode_text_clip([negative_prompt]) \
-                if negative_prompt.strip() else None
+                if negative_prompt and negative_prompt.strip() else None
 
             conditions = net_generator.preprocess_conditions(clip_f, sync_f, text_clip)
             empty_conditions = net_generator.get_empty_conditions(
