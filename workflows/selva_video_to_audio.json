@@ -1,8 +1,8 @@
 {
   "id": "selva-video-to-audio-v1",
-  "revision": 0,
+  "revision": 1,
   "last_node_id": 6,
-  "last_link_id": 8,
+  "last_link_id": 9,
   "nodes": [
     {
       "id": 1,
@@ -55,9 +55,10 @@
       ],
       "outputs": [
         {"name": "features", "type": "SELVA_FEATURES", "slot_index": 0, "links": [5]},
-        {"name": "fps",      "type": "FLOAT",           "slot_index": 1, "links": []}
+        {"name": "fps",      "type": "FLOAT",           "slot_index": 1, "links": []},
+        {"name": "prompt",   "type": "STRING",           "slot_index": 2, "links": [9]}
       ],
-      "widgets_values": ["dog barking", 30.0, 0.0, ""],
+      "widgets_values": ["", 30.0, 0.0, ""],
       "properties": {"Node name for S&R": "SelvaFeatureExtractor"}
     },
     {
@@ -69,19 +70,19 @@
       "order": 3,
       "mode": 0,
       "inputs": [
-        {"name": "model",           "type": "SELVA_MODEL",   "link": 4},
-        {"name": "features",        "type": "SELVA_FEATURES","link": 5},
-        {"name": "prompt",          "type": "STRING",        "link": null, "widget": {"name": "prompt"}},
-        {"name": "negative_prompt", "type": "STRING",        "link": null, "widget": {"name": "negative_prompt"}},
-        {"name": "duration",        "type": "FLOAT",         "link": null, "widget": {"name": "duration"}},
-        {"name": "steps",           "type": "INT",           "link": null, "widget": {"name": "steps"}},
-        {"name": "cfg_strength",    "type": "FLOAT",         "link": null, "widget": {"name": "cfg_strength"}},
-        {"name": "seed",            "type": "INT",           "link": null, "widget": {"name": "seed"}}
+        {"name": "model",           "type": "SELVA_MODEL",    "link": 4},
+        {"name": "features",        "type": "SELVA_FEATURES", "link": 5},
+        {"name": "prompt",          "type": "STRING",         "link": 9, "widget": {"name": "prompt"}},
+        {"name": "negative_prompt", "type": "STRING",         "link": null, "widget": {"name": "negative_prompt"}},
+        {"name": "duration",        "type": "FLOAT",          "link": null, "widget": {"name": "duration"}},
+        {"name": "steps",           "type": "INT",            "link": null, "widget": {"name": "steps"}},
+        {"name": "cfg_strength",    "type": "FLOAT",          "link": null, "widget": {"name": "cfg_strength"}},
+        {"name": "seed",            "type": "INT",            "link": null, "widget": {"name": "seed"}}
       ],
       "outputs": [
         {"name": "audio", "type": "AUDIO", "slot_index": 0, "links": [6]}
       ],
-      "widgets_values": ["dog barking", "", 0.0, 25, 4.5, 0],
+      "widgets_values": ["", "", 0.0, 25, 4.5, 0],
       "properties": {"Node name for S&R": "SelvaSampler"}
     },
     {
@@ -105,7 +106,8 @@
     [3, 2, 0, 3, 0, "SELVA_MODEL"],
     [4, 2, 0, 4, 0, "SELVA_MODEL"],
     [5, 3, 0, 4, 1, "SELVA_FEATURES"],
-    [6, 4, 0, 5, 0, "AUDIO"]
+    [6, 4, 0, 5, 0, "AUDIO"],
+    [9, 3, 2, 4, 2, "STRING"]
   ],
   "groups": [],
   "config": {},
