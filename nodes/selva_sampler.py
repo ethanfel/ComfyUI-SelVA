@@ -38,8 +38,8 @@ class SelvaSampler:
     CATEGORY = SELVA_CATEGORY
 
     def generate(self, model, features, prompt, negative_prompt, duration, steps, cfg_strength, seed):
+        import dataclasses
         from selva_core.model.flow_matching import FlowMatching
-        from selva_core.model.sequence_config import SequenceConfig
 
         device   = get_device()
         dtype    = model["dtype"]
@@ -63,11 +63,8 @@ class SelvaSampler:
             duration = features["duration"]
             print(f"[SelVA] Using video duration from features: {duration:.2f}s", flush=True)
 
-        # Compute sequence config for this duration
-        if mode == "16k":
-            seq_cfg = SequenceConfig(duration=duration, sampling_rate=16000, spectrogram_frame_rate=256)
-        else:
-            seq_cfg = SequenceConfig(duration=duration, sampling_rate=44100, spectrogram_frame_rate=512)
+        # Derive sequence config for this duration from the model's mode template
+        seq_cfg = dataclasses.replace(model["seq_cfg"], duration=duration)
         sample_rate = seq_cfg.sampling_rate
 
         if strategy == "offload_to_cpu":

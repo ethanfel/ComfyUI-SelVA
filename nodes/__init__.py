@@ -14,4 +14,4 @@ for key, (module_path, class_name, display_name) in _NODES.items():
         NODE_CLASS_MAPPINGS[key] = getattr(mod, class_name)
         NODE_DISPLAY_NAME_MAPPINGS[key] = display_name
     except (ImportError, AttributeError) as e:
-        print(f"[PrismAudio] Skipping {key}: {e}")
+        print(f"[SelVA] Skipping {key}: {e}")

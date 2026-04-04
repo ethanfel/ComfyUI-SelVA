@@ -36,7 +36,12 @@ def _resize_frames(frames, size):
 
 def _hash_inputs(video_tensor, prompt, fps, duration, variant):
     h = hashlib.sha256()
-    h.update(video_tensor.cpu().numpy().tobytes()[:1024 * 1024])
+    raw = video_tensor.cpu().numpy().tobytes()
+    n = len(raw)
+    chunk = 512 * 1024  # 512 KB per sample
+    h.update(raw[:chunk])
+    h.update(raw[n // 2: n // 2 + chunk])
+    h.update(raw[max(0, n - chunk):])
     h.update(prompt.encode())
     h.update(str(fps).encode())
     h.update(str(round(duration, 3)).encode())  # resolved duration affects frame count
