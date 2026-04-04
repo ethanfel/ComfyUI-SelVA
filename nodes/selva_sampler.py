@@ -1,5 +1,6 @@
 import torch
 import comfy.utils
+import comfy.model_management
 
 from .utils import SELVA_CATEGORY, get_device, get_offload_device, soft_empty_cache
 
@@ -29,15 +30,22 @@ class SelvaSampler:
                                            "tooltip": "Classifier-free guidance scale. Higher values follow the prompt more strictly but can introduce artifacts. SelVA default is 4.5; useful range is roughly 3–7."}),
                 "seed":     ("INT",   {"default": 0,   "min": 0,   "max": 0xFFFFFFFF}),
             },
-            "optional": {},
+            "optional": {
+                "normalize": ("BOOLEAN", {
+                    "default": True,
+                    "tooltip": "Peak-normalize output to [-1, 1]. Disable to preserve the raw decoder output level.",
+                }),
+            },
         }
 
     RETURN_TYPES = ("AUDIO",)
     RETURN_NAMES = ("audio",)
+    OUTPUT_TOOLTIPS = ("Generated audio waveform — connect to VHS_VideoCombine or Save Audio.",)
     FUNCTION = "generate"
     CATEGORY = SELVA_CATEGORY
+    DESCRIPTION = "Generates audio from video features using SelVA's flow matching ODE. Supports text prompts and negative prompts via classifier-free guidance."
 
-    def generate(self, model, features, prompt, negative_prompt, duration, steps, cfg_strength, seed):
+    def generate(self, model, features, prompt, negative_prompt, duration, steps, cfg_strength, seed, normalize=True):
         import dataclasses
         from selva_core.model.flow_matching import FlowMatching
 
@@ -47,6 +55,14 @@ class SelvaSampler:
         net_generator = model["generator"]
         feature_utils = model["feature_utils"]
         mode          = model["mode"]
+
+        # Validate that features were extracted with the same model variant
+        feat_variant = features.get("variant")
+        if feat_variant is not None and feat_variant != model["variant"]:
+            raise ValueError(
+                f"[SelVA] Variant mismatch: features were extracted with '{feat_variant}' "
+                f"but model is '{model['variant']}'. Re-run the Feature Extractor with the current model."
+            )
 
         # Resolve prompt: use override if given, otherwise fall back to features prompt
         if not prompt or not prompt.strip():
@@ -112,10 +128,17 @@ class SelvaSampler:
             pbar = comfy.utils.ProgressBar(steps)
 
             def ode_wrapper_tracked(t, x):
+                comfy.model_management.throw_exception_if_processing_interrupted()
                 pbar.update(1)
                 return net_generator.ode_wrapper(t, x, conditions, empty_conditions, cfg_strength)
 
-            x1 = fm.to_data(ode_wrapper_tracked, x0)
+            try:
+                x1 = fm.to_data(ode_wrapper_tracked, x0)
+            except torch.cuda.OutOfMemoryError:
+                raise RuntimeError(
+                    "[SelVA] CUDA out of memory during generation. Try switching offload_strategy "
+                    "to 'offload_to_cpu', using a smaller variant, or reducing duration."
+                )
 
         print(f"[SelVA] latent stats: mean={x1.float().mean():.4f} std={x1.float().std():.4f}", flush=True)
 
@@ -137,8 +160,9 @@ class SelvaSampler:
         elif audio.dim() == 3 and audio.shape[1] != 1:
             audio = audio.mean(dim=1, keepdim=True)  # stereo → mono
 
-        peak = audio.abs().max().clamp(min=1e-8)
-        audio = (audio / peak).clamp(-1, 1)
+        if normalize:
+            peak = audio.abs().max().clamp(min=1e-8)
+            audio = (audio / peak).clamp(-1, 1)
         print(f"[SelVA] audio: shape={tuple(audio.shape)} sr={sample_rate}", flush=True)
 
         return ({"waveform": audio.cpu(), "sample_rate": sample_rate},)

@@ -5,6 +5,7 @@ import tempfile
 import numpy as np
 import torch
 import torch.nn.functional as F
+import comfy.utils
 
 from .utils import SELVA_CATEGORY, get_device, get_offload_device, soft_empty_cache
 
@@ -46,7 +47,7 @@ def _hash_inputs(video_tensor, prompt, fps, duration, variant):
     h.update(str(fps).encode())
     h.update(str(round(duration, 3)).encode())  # resolved duration affects frame count
     h.update(variant.encode())
-    return h.hexdigest()[:16]
+    return h.hexdigest()[:32]
 
 
 class SelvaFeatureExtractor:
@@ -76,8 +77,14 @@ class SelvaFeatureExtractor:
 
     RETURN_TYPES = ("SELVA_FEATURES", "FLOAT", "STRING")
     RETURN_NAMES = ("features", "fps", "prompt")
+    OUTPUT_TOOLTIPS = (
+        "Extracted feature bundle — connect to Sampler.",
+        "Source fps of the video — wire to VHS_VideoCombine frame_rate.",
+        "The prompt used during extraction — wire to Sampler prompt to avoid re-typing.",
+    )
     FUNCTION = "extract_features"
     CATEGORY = SELVA_CATEGORY
+    DESCRIPTION = "Extracts CLIP visual features and text-conditioned sync features from a video. Results are cached — re-running with the same inputs is instant."
 
     def extract_features(self, model, video, prompt, video_info=None, fps=30.0,
                          duration=0.0, cache_dir=""):
@@ -116,6 +123,7 @@ class SelvaFeatureExtractor:
             soft_empty_cache()
 
         print(f"[SelVA] Extracting features: duration={duration:.2f}s fps={fps:.3f} prompt='{prompt[:60]}'", flush=True)
+        pbar = comfy.utils.ProgressBar(3)
 
         with torch.no_grad():
             # --- CLIP frames: [1, N, C, 384, 384] float32 [0,1] ---
@@ -125,6 +133,7 @@ class SelvaFeatureExtractor:
             print(f"[SelVA]   CLIP frames: {clip_frames.shape[0]} @ {_CLIP_FPS}fps → 384px", flush=True)
 
             clip_features = feature_utils.encode_video_with_clip(clip_input)  # [1, N, 1024]
+            pbar.update(1)
 
             # --- Sync frames: [1, N, C, 224, 224] float32 [-1,1] ---
             sync_frames = _sample_frames(video, fps, _SYNC_FPS, duration)    # [N, H, W, C]
@@ -142,10 +151,12 @@ class SelvaFeatureExtractor:
 
             # Encode T5 text + prepend supplementary tokens → text-conditioned sync features
             text_f, text_mask = feature_utils.encode_text_t5([prompt])           # [1, L, D], [1, L]
+            pbar.update(1)
             text_f, text_mask = net_video_enc.prepend_sup_text_tokens(text_f, text_mask)
             sync_features = net_video_enc.encode_video_with_sync(
                 sync_input, text_f=text_f, text_mask=text_mask
             )  # [1, T_sync, 768]
+            pbar.update(1)
 
         print(f"[SelVA]   clip_features: {tuple(clip_features.shape)}", flush=True)
         print(f"[SelVA]   sync_features: {tuple(sync_features.shape)}", flush=True)
@@ -161,6 +172,7 @@ class SelvaFeatureExtractor:
             sync_features=sync_features.cpu().float().numpy(),
             duration=float(duration),
             prompt=np.array(prompt),
+            variant=np.array(model["variant"]),
         )
         print(f"[SelVA] Features cached: {cached_path}", flush=True)
 
@@ -169,6 +181,7 @@ class SelvaFeatureExtractor:
             "sync_features": sync_features.cpu(),
             "duration": float(duration),
             "prompt": prompt,
+            "variant": model["variant"],
         }, float(fps), prompt)
 
 
@@ -181,4 +194,6 @@ def _load_cached(path):
     }
     if "prompt" in data:
         features["prompt"] = str(data["prompt"])
+    if "variant" in data:
+        features["variant"] = str(data["variant"])
     return features

@@ -101,8 +101,10 @@ class SelvaModelLoader:
 
     RETURN_TYPES = ("SELVA_MODEL",)
     RETURN_NAMES = ("model",)
+    OUTPUT_TOOLTIPS = ("Loaded model bundle — connect to Feature Extractor and Sampler.",)
     FUNCTION = "load_model"
     CATEGORY = SELVA_CATEGORY
+    DESCRIPTION = "Loads the SelVA generator, TextSynchformer encoder, CLIP, T5, and VAE. Weights are auto-downloaded from HuggingFace on first use."
 
     def load_model(self, variant, precision, offload_strategy):
         from selva_core.model.networks_generator import get_my_mmaudio
@@ -112,9 +114,12 @@ class SelvaModelLoader:
 
         gen_filename, mode, has_bigvgan = _VARIANTS[variant]
 
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if precision == "bf16" and device.type == "cuda" and not torch.cuda.is_bf16_supported():
+            print("[SelVA] Warning: bf16 not supported on this GPU — falling back to fp16.", flush=True)
+            precision = "fp16"
         dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
         strategy = determine_offload_strategy(offload_strategy)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         print("[SelVA] Resolving weights (auto-downloading if missing)...", flush=True)
         video_enc_path = _ensure("video_enc_sup_5.pth")
