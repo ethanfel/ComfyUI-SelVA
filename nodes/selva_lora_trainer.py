@@ -508,7 +508,11 @@ class SelvaLoraTrainer:
                                        dataset, seq_cfg, device, dtype)
                 if wav is not None:
                     wav_path = output_dir / f"sample_step{step:05d}.wav"
-                    torchaudio.save(str(wav_path), wav, sr)
+                    try:
+                        torchaudio.save(str(wav_path), wav, sr)
+                    except RuntimeError:
+                        import soundfile as sf
+                        sf.write(str(wav_path), wav.squeeze(0).numpy(), sr)
                     print(f"[LoRA Trainer] Sample saved: {wav_path}", flush=True)
 
             pbar_train.update(1)
