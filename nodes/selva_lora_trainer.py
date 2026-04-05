@@ -365,10 +365,11 @@ class SelvaLoraTrainer:
             raise ValueError("[LoRA Trainer] No clips could be loaded.")
         print(f"[LoRA Trainer] {len(dataset)} clip(s) ready.", flush=True)
 
-        # Everything from here runs inside enable_grad: ComfyUI wraps nodes in
-        # inference_mode, and nn.Parameters created in that context are inference
-        # tensors that can't enter autograd even with requires_grad=True.
-        with torch.enable_grad():
+        # ComfyUI executes nodes inside torch.inference_mode(). Inference tensors
+        # can't participate in autograd even with enable_grad — disable inference
+        # mode entirely so deepcopy, apply_lora, and the training loop all run
+        # with a clean autograd context.
+        with torch.inference_mode(False), torch.enable_grad():
             return self._train_inner(
                 model, dataset, feature_utils_orig, seq_cfg,
                 device, dtype, variant, mode,
