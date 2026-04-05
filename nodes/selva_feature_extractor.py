@@ -155,6 +155,7 @@ class SelvaFeatureExtractor:
         "Source fps of the video — wire to VHS_VideoCombine frame_rate.",
         "The prompt used during extraction — wire to Sampler prompt to avoid re-typing.",
     )
+    OUTPUT_NODE = True  # always execute: the node's purpose is saving .npz files to disk
     FUNCTION = "extract_features"
     CATEGORY = SELVA_CATEGORY
     DESCRIPTION = "Extracts CLIP visual features and text-conditioned sync features from a video. Results are cached — re-running with the same inputs is instant."
