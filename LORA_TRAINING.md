@@ -127,6 +127,8 @@ The script will:
 | `--resume` | `None` | Path to a step checkpoint to resume from (e.g. `lora_output/adapter_step04000.pt`) |
 | `--precision` | `bf16` | Mixed precision: `bf16`, `fp16`, `fp32` |
 | `--seed` | `42` | Random seed |
+| `--timestep_mode` | `logit_normal` | Timestep sampling: `logit_normal` (recommended) or `uniform` |
+| `--logit_normal_sigma` | `1.0` | Spread of the logit-normal distribution. Only used with `logit_normal` |
 
 ---
 
@@ -240,6 +242,22 @@ Add `linear1` to also adapt post-attention projections for large-scale domain sh
 ```
 
 Only add `linear1` once you have 150+ clips — it doubles the adapted parameter count and overfits faster on small datasets.
+
+### Timestep sampling mode
+
+The default `logit_normal` mode samples training timesteps from a bell-shaped distribution centered at t=0.5 (via `sigmoid(N(0, σ))`). This gives more training budget to the middle of the noise schedule — the semantically rich region where the model learns what the sound should sound like — while still covering the full range.
+
+The alternative `uniform` mode samples all timesteps equally. This is mathematically valid but undertrains the high-t region (t > 0.8), which is where final audio quality is determined. Undertraining there leaves residual noise that is then amplified by CFG at inference.
+
+| Mode | When to use |
+|---|---|
+| `logit_normal` (default, σ=1.0) | Recommended for all cases — reduces white noise artifacts |
+| `uniform` | Baseline / comparison; equivalent to original MMAudio training |
+
+The `logit_normal_sigma` parameter controls the width of the distribution:
+- σ=1.0: moderate peak at t=0.5, balanced coverage (default)
+- σ=0.5: sharper peak, less coverage of extremes
+- σ=2.0: broader, approaches uniform
 
 ### Adapter strength at inference
 
