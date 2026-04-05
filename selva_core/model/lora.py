@@ -41,8 +41,9 @@ class LoRALinear(nn.Module):
         if linear.bias is not None:
             linear.bias.requires_grad_(False)
 
-        self.lora_A = nn.Parameter(torch.empty(rank, in_f))
-        self.lora_B = nn.Parameter(torch.zeros(out_f, rank))
+        ref_dtype   = linear.weight.dtype
+        self.lora_A = nn.Parameter(torch.empty(rank, in_f, dtype=ref_dtype))
+        self.lora_B = nn.Parameter(torch.zeros(out_f, rank, dtype=ref_dtype))
         self.scale  = alpha / rank
 
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
