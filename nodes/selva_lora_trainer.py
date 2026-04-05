@@ -370,7 +370,23 @@ class SelvaLoraTrainer:
                 # Text → CLIP features (reuse already-loaded CLIP from inference model)
                 text_clip = feature_utils_orig.encode_text_clip([prompt]).cpu()
 
-                dataset.append((x1, bundle["clip_features"], bundle["sync_features"], text_clip))
+                # Pad/trim clip and sync features to fixed seq lengths — clips from
+                # shorter videos have fewer frames and would cause stack() to fail
+                clip_f = bundle["clip_features"]  # [1, N_clip, 1024]
+                c_tgt  = seq_cfg.clip_seq_len
+                if clip_f.shape[1] < c_tgt:
+                    clip_f = F.pad(clip_f, (0, 0, 0, c_tgt - clip_f.shape[1]))
+                elif clip_f.shape[1] > c_tgt:
+                    clip_f = clip_f[:, :c_tgt, :]
+
+                sync_f = bundle["sync_features"]  # [1, N_sync, 768]
+                s_tgt  = seq_cfg.sync_seq_len
+                if sync_f.shape[1] < s_tgt:
+                    sync_f = F.pad(sync_f, (0, 0, 0, s_tgt - sync_f.shape[1]))
+                elif sync_f.shape[1] > s_tgt:
+                    sync_f = sync_f[:, :s_tgt, :]
+
+                dataset.append((x1, clip_f, sync_f, text_clip))
             except Exception as e:
                 print(f"  [LoRA Trainer] Warning: failed {npz_path.name}: {e}", flush=True)
                 traceback.print_exc()
