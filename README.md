@@ -35,10 +35,20 @@ Extracts CLIP visual features and text-guided sync features from a video. Result
 | `fps` | Source fps — ignored if `video_info` is connected |
 | `duration` | Override clip duration in seconds. `0` = infer from video length |
 | `cache_dir` | Directory for cached `.npz` files. Empty = system temp dir |
+| `mask` | *(optional)* Segmentation mask `[T,H,W]` float [0,1] — static (1 frame) or per-frame |
+| `mask_strength` | Background suppression strength. `1.0` = full neutral fill, `0.0` = no effect |
+| `mask_clip` | Apply mask to CLIP features (384px path). Disable to let CLIP see the full scene |
+| `mask_sync` | Apply mask to TextSynchformer sync features (224px path) |
 
 **Outputs:** `features` (SELVA_FEATURES), `fps` (FLOAT), `prompt` (STRING)
 
 Connect `prompt` output to the Sampler's `prompt` input to avoid entering it twice.
+
+#### Masking
+
+Connect a segmentation mask (SAM2, Grounding DINO+SAM, or any ComfyUI mask node) to isolate a specific object's motion before encoding. Background pixels are filled with a neutral value (0.5) rather than zeroed — this keeps them in-distribution for CLIP and maps to exactly 0 after sync's `[-1,1]` normalization, minimising the influence of background motion on the generated audio.
+
+Use `mask_sync=true, mask_clip=false` if you want sync features focused on the target object while CLIP still sees the full scene for broader context. Changing any mask parameter correctly busts the feature cache.
 
 ---
 
@@ -56,6 +66,7 @@ Generates audio from video features. Runs the rectified flow ODE with classifier
 | `steps` | Sampling steps (default: 25) |
 | `cfg_strength` | Classifier-free guidance scale (default: 4.5) |
 | `seed` | RNG seed |
+| `normalize` | Peak-normalize output to [-1, 1] (default: true) |
 
 **Output:** `AUDIO`
 
