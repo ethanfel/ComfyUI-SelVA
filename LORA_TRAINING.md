@@ -34,7 +34,7 @@ For each video clip you want to train on:
 1. Load the video with a VHS LoadVideo node.
 2. Connect it to **SelVA Feature Extractor**.
 3. Set **`cache_dir`** to a dedicated dataset folder, e.g. `dataset/my_sound`.
-4. Set **`name`** to a short descriptive label, e.g. `dog_bark`. The node will save `dog_bark.npz`, then `dog_bark_001.npz`, `dog_bark_002.npz`, etc. automatically as you process more clips.
+4. Set **`name`** to a short descriptive label, e.g. `dog_bark`. The node will save `dog_bark_001.npz`, then `dog_bark_002.npz`, etc. automatically as you process more clips.
 5. Set the **`prompt`** to describe the sound (e.g. `a dog barking`). This prompt is used to condition the sync features — be specific.
 6. Optionally connect a **mask** to isolate the sound source in frame (recommended when the scene has multiple objects).
 
@@ -46,12 +46,12 @@ For each `.npz` file, place a matching audio file with the **same filename stem*
 
 ```
 dataset/my_sound/
-    dog_bark.npz       ← from SelVA Feature Extractor
-    dog_bark.wav       ← clean isolated audio recording
-    dog_bark_001.npz
-    dog_bark_001.wav
+    dog_bark_001.npz   ← from SelVA Feature Extractor
+    dog_bark_001.wav   ← clean isolated audio recording
     dog_bark_002.npz
     dog_bark_002.wav
+    dog_bark_003.npz
+    dog_bark_003.wav
 ```
 
 Supported audio formats: `.wav`, `.flac`, `.mp3`, `.ogg`, `.aiff`, `.aif`
