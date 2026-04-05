@@ -158,50 +158,52 @@ class SelvaFeatureExtractor:
         print(f"[SelVA] Extracting features: duration={duration:.2f}s fps={fps:.3f} prompt='{prompt[:60]}'", flush=True)
         pbar = comfy.utils.ProgressBar(3)
 
-        with torch.no_grad():
-            # --- CLIP frames: [1, N, C, 384, 384] float32 [0,1] ---
-            clip_frames = _sample_frames(video, fps, _CLIP_FPS, duration)   # [N, H, W, C]
-            clip_frames = _resize_frames(clip_frames, _CLIP_SIZE)            # [N, C, 384, 384]
-            if mask is not None:
-                clip_frames = _apply_mask(clip_frames, mask)
-            clip_input  = clip_frames.unsqueeze(0).to(device, dtype)         # [1, N, C, 384, 384]
-            print(f"[SelVA]   CLIP frames: {clip_frames.shape[0]} @ {_CLIP_FPS}fps → 384px {'(masked)' if mask is not None else ''}", flush=True)
+        try:
+            with torch.no_grad():
+                # --- CLIP frames: [1, N, C, 384, 384] float32 [0,1] ---
+                clip_frames = _sample_frames(video, fps, _CLIP_FPS, duration)   # [N, H, W, C]
+                clip_frames = _resize_frames(clip_frames, _CLIP_SIZE)            # [N, C, 384, 384]
+                if mask is not None:
+                    clip_frames = _apply_mask(clip_frames, mask)
+                clip_input  = clip_frames.unsqueeze(0).to(device, dtype)         # [1, N, C, 384, 384]
+                print(f"[SelVA]   CLIP frames: {clip_frames.shape[0]} @ {_CLIP_FPS}fps → 384px {'(masked)' if mask is not None else ''}", flush=True)
 
-            clip_features = feature_utils.encode_video_with_clip(clip_input)  # [1, N, 1024]
-            pbar.update(1)
+                clip_features = feature_utils.encode_video_with_clip(clip_input)  # [1, N, 1024]
+                pbar.update(1)
 
-            # --- Sync frames: [1, N, C, 224, 224] float32 [-1,1] ---
-            sync_frames = _sample_frames(video, fps, _SYNC_FPS, duration)    # [N, H, W, C]
-            sync_frames = _resize_frames(sync_frames, _SYNC_SIZE)             # [N, C, 224, 224]
-            if mask is not None:
-                sync_frames = _apply_mask(sync_frames, mask)
-            # Pad to minimum 16 frames (TextSynchformer segment size)
-            if sync_frames.shape[0] < 16:
-                pad = 16 - sync_frames.shape[0]
-                sync_frames = torch.cat([sync_frames, sync_frames[-1:].expand(pad, -1, -1, -1)], dim=0)
-            # Normalize [0,1] → [-1,1]
-            mean = _SYNC_MEAN.to(sync_frames.device)
-            std  = _SYNC_STD.to(sync_frames.device)
-            sync_frames = (sync_frames - mean) / std
-            sync_input  = sync_frames.unsqueeze(0).to(device, dtype)          # [1, N, C, 224, 224]
-            print(f"[SelVA]   Sync frames: {sync_frames.shape[0]} @ {_SYNC_FPS}fps → 224px {'(masked)' if mask is not None else ''}", flush=True)
+                # --- Sync frames: [1, N, C, 224, 224] float32 [-1,1] ---
+                sync_frames = _sample_frames(video, fps, _SYNC_FPS, duration)    # [N, H, W, C]
+                sync_frames = _resize_frames(sync_frames, _SYNC_SIZE)             # [N, C, 224, 224]
+                if mask is not None:
+                    sync_frames = _apply_mask(sync_frames, mask)
+                # Pad to minimum 16 frames (TextSynchformer segment size)
+                if sync_frames.shape[0] < 16:
+                    pad = 16 - sync_frames.shape[0]
+                    sync_frames = torch.cat([sync_frames, sync_frames[-1:].expand(pad, -1, -1, -1)], dim=0)
+                # Normalize [0,1] → [-1,1]
+                mean = _SYNC_MEAN.to(sync_frames.device)
+                std  = _SYNC_STD.to(sync_frames.device)
+                sync_frames = (sync_frames - mean) / std
+                sync_input  = sync_frames.unsqueeze(0).to(device, dtype)          # [1, N, C, 224, 224]
+                print(f"[SelVA]   Sync frames: {sync_frames.shape[0]} @ {_SYNC_FPS}fps → 224px {'(masked)' if mask is not None else ''}", flush=True)
 
-            # Encode T5 text + prepend supplementary tokens → text-conditioned sync features
-            text_f, text_mask = feature_utils.encode_text_t5([prompt])           # [1, L, D], [1, L]
-            pbar.update(1)
-            text_f, text_mask = net_video_enc.prepend_sup_text_tokens(text_f, text_mask)
-            sync_features = net_video_enc.encode_video_with_sync(
-                sync_input, text_f=text_f, text_mask=text_mask
-            )  # [1, T_sync, 768]
-            pbar.update(1)
+                # Encode T5 text + prepend supplementary tokens → text-conditioned sync features
+                text_f, text_mask = feature_utils.encode_text_t5([prompt])           # [1, L, D], [1, L]
+                pbar.update(1)
+                text_f, text_mask = net_video_enc.prepend_sup_text_tokens(text_f, text_mask)
+                sync_features = net_video_enc.encode_video_with_sync(
+                    sync_input, text_f=text_f, text_mask=text_mask
+                )  # [1, T_sync, 768]
+                pbar.update(1)
 
-        print(f"[SelVA]   clip_features: {tuple(clip_features.shape)}", flush=True)
-        print(f"[SelVA]   sync_features: {tuple(sync_features.shape)}", flush=True)
+            print(f"[SelVA]   clip_features: {tuple(clip_features.shape)}", flush=True)
+            print(f"[SelVA]   sync_features: {tuple(sync_features.shape)}", flush=True)
 
-        if strategy == "offload_to_cpu":
-            feature_utils.to(get_offload_device())
-            net_video_enc.to(get_offload_device())
-            soft_empty_cache()
+        finally:
+            if strategy == "offload_to_cpu":
+                feature_utils.to(get_offload_device())
+                net_video_enc.to(get_offload_device())
+                soft_empty_cache()
 
         np.savez(
             cached_path,
