@@ -136,11 +136,39 @@ The loader reads rank, alpha, and target layers from the metadata embedded in th
 
 ## Tuning Guide
 
+### Clip length
+
+The model has a **fixed input duration of 8 seconds** for all variants (both 16k and 44k). This is not a parameter you can change.
+
+- Audio shorter than 8 s is **zero-padded** (silence appended). The model will learn the sound but may also learn silence as part of the pattern — keep in mind for very short sounds.
+- Audio longer than 8 s is **trimmed** at 8 s. Content beyond that is lost.
+- Video shorter than 8 s has its **last frame repeated** to fill the clip.
+
+**Practical recommendations:**
+
+| Sound type | Clip strategy |
+|---|---|
+| Continuous sound (rain, engine, wind) | 8 s recordings, as many positions in the audio as possible |
+| Single event < 2 s (click, bark, knock) | Center the event — pad deliberately with silence before/after, or loop the event 2–3 times per clip |
+| Repeating event (footsteps, dripping) | Record full 8 s with natural repetition at the intended cadence |
+| Sound with a clear onset (explosion, splash) | Put the onset at ~1–2 s from the start, not at 0 s — gives the model context |
+
+> **Tip:** When extracting features in ComfyUI, set `duration` to 0 to use the full video length up to 8 s. Clips longer than 8 s are automatically clamped.
+
 ### How many clips do I need?
 
-- **20–50 clips** is enough for a sound class the model already partially knows (e.g. a specific dog breed's bark if it knows "dog barking").
-- **50–200 clips** for harder cases — unusual sounds, strong style shift, or sounds the model never encountered.
-- More data generally beats more steps. Diverse recordings of the same sound are better than one recording looped.
+The table below gives a rough scaling guide. Quality and diversity of recordings matter more than raw count.
+
+| Dataset size | Scenario | Expected result |
+|---|---|---|
+| **5–10 clips** | Quick test / proof of concept | May work if the model already partially knows the sound; often underfits |
+| **15–30 clips** | Fine-tuning a sound the model knows but gets wrong | Good starting point — covers the main variations |
+| **30–60 clips** | Teaching a new but acoustically simple sound class | Reliable convergence with default hyperparameters |
+| **60–150 clips** | Unusual or complex sounds, strong style shift | Needed for stable generalization across video contexts |
+| **150–300 clips** | Sounds the model has never encountered | Required to avoid overfitting; increase rank to 32 |
+| **300+** | Large-scale domain shift | Consider also targeting `linear1` in addition to `attn.qkv` |
+
+**Diversity beats quantity.** Ten clips of a dog barking in different environments (indoors, outdoors, distant, close) train better than fifty clips of the same recording. Vary: distance, room acoustics, intensity, speed.
 
 ### Rank
 
