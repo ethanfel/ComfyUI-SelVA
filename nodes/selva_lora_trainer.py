@@ -146,8 +146,17 @@ def _eval_sample(generator, feature_utils_orig, dataset, seq_cfg, device, dtype,
 # Loss curve rendering
 # ---------------------------------------------------------------------------
 
+def _smooth_losses(losses: list[float], beta: float = 0.9) -> list[float]:
+    """Exponential moving average smoothing."""
+    smoothed, ema = [], None
+    for v in losses:
+        ema = v if ema is None else beta * ema + (1 - beta) * v
+        smoothed.append(ema)
+    return smoothed
+
+
 def _draw_loss_curve(losses: list[float], log_interval: int,
-                     start_step: int = 0) -> Image.Image:
+                     start_step: int = 0, smoothed: list[float] | None = None) -> Image.Image:
     """Render a loss curve as a PIL Image."""
     W, H = 800, 380
     pl, pr, pt, pb = 70, 20, 25, 45
@@ -171,14 +180,23 @@ def _draw_loss_curve(losses: list[float], log_interval: int,
             draw.line([(pl, y), (W - pr, y)], fill=(220, 220, 220), width=1)
             draw.text((2, y - 7), f"{val:.4f}", fill=(120, 120, 120))
 
-        # Loss line
+        # Raw loss line
         n   = len(losses)
         pts = []
         for i, v in enumerate(losses):
             x = pl + int(i * pw / max(n - 1, 1))
             y = pt + int((1.0 - (v - lo) / rng) * ph)
             pts.append((x, y))
-        draw.line(pts, fill=(66, 133, 244), width=2)
+        draw.line(pts, fill=(200, 220, 255), width=1)
+
+        # Smoothed overlay
+        if smoothed is not None and len(smoothed) >= 2:
+            spts = []
+            for i, v in enumerate(smoothed):
+                x = pl + int(i * pw / max(n - 1, 1))
+                y = pt + int((1.0 - (v - lo) / rng) * ph)
+                spts.append((x, y))
+            draw.line(spts, fill=(66, 133, 244), width=2)
 
         # x-axis step labels — account for start_step so resumed runs are correct
         first_step = start_step + log_interval
@@ -487,7 +505,8 @@ class SelvaLoraTrainer:
                 running_loss = 0.0
 
                 # Live preview: send updated loss curve to ComfyUI frontend
-                preview_img = _draw_loss_curve(loss_history, log_interval, start_step)
+                preview_img = _draw_loss_curve(loss_history, log_interval, start_step,
+                                               smoothed=_smooth_losses(loss_history))
                 pbar_train.update_absolute(
                     step - start_step, remaining, ("JPEG", preview_img, 800)
                 )
@@ -528,6 +547,13 @@ class SelvaLoraTrainer:
         generator.to(next(model["generator"].parameters()).device)
         patched = {**model, "generator": generator}
 
-        loss_curve = _pil_to_tensor(_draw_loss_curve(loss_history, log_interval, start_step))
+        smoothed = _smooth_losses(loss_history)
+        raw_img      = _draw_loss_curve(loss_history, log_interval, start_step)
+        smoothed_img = _draw_loss_curve(loss_history, log_interval, start_step, smoothed=smoothed)
+        raw_img.save(str(output_dir / "loss_raw.png"))
+        smoothed_img.save(str(output_dir / "loss_smoothed.png"))
+        print(f"[LoRA Trainer] Loss curves saved to {output_dir}", flush=True)
+
+        loss_curve = _pil_to_tensor(smoothed_img)
 
         return (patched, str(final_path), loss_curve)
