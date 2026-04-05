@@ -6,6 +6,7 @@ _NODES = {
     "SelvaFeatureExtractor": (".selva_feature_extractor", "SelvaFeatureExtractor", "SelVA Feature Extractor"),
     "SelvaSampler":          (".selva_sampler",           "SelvaSampler",          "SelVA Sampler"),
     "SelvaLoraLoader":       (".selva_lora_loader",       "SelvaLoraLoader",       "SelVA LoRA Loader"),
+    "SelvaLoraTrainer":      (".selva_lora_trainer",      "SelvaLoraTrainer",      "SelVA LoRA Trainer"),
 }
 
 for key, (module_path, class_name, display_name) in _NODES.items():
