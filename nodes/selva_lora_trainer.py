@@ -242,7 +242,7 @@ class SelvaLoraTrainer:
                     "default": "attn.qkv",
                     "tooltip": "Space-separated layer name suffixes to wrap. Default targets all QKV projections. Add 'linear1' for post-attention projections.",
                 }),
-                "warmup_steps": ("INT", {"default": 500, "min": 0, "max": 5000}),
+                "warmup_steps": ("INT", {"default": 100, "min": 0, "max": 5000}),
                 "grad_accum":   ("INT", {"default": 4,   "min": 1, "max": 32,
                                          "tooltip": "Gradient accumulation steps."}),
                 "save_every":   ("INT", {"default": 500, "min": 50, "max": 10000}),
@@ -271,7 +271,7 @@ class SelvaLoraTrainer:
     )
 
     def train(self, model, data_dir, output_dir, steps, rank, lr,
-              alpha=0.0, target="attn.qkv", warmup_steps=500,
+              alpha=0.0, target="attn.qkv", warmup_steps=100,
               grad_accum=4, save_every=500, resume_path="", seed=42):
 
         torch.manual_seed(seed)

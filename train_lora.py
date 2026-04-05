@@ -159,7 +159,7 @@ def main():
                         help="Module name suffixes to wrap with LoRA. Also try 'linear1'.")
     parser.add_argument("--lr",          type=float, default=1e-4)
     parser.add_argument("--steps",       type=int,   default=2000)
-    parser.add_argument("--warmup_steps",type=int,   default=500)
+    parser.add_argument("--warmup_steps",type=int,   default=100)
     parser.add_argument("--grad_accum",  type=int,   default=4,    help="Gradient accumulation steps")
     parser.add_argument("--save_every",  type=int,   default=500)
     parser.add_argument("--resume",      default=None,
