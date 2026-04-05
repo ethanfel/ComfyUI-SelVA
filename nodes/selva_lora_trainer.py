@@ -305,7 +305,24 @@ class SelvaLoraTrainer:
         feature_utils_orig = model["feature_utils"]
 
         data_dir   = Path(data_dir.strip())
-        output_dir = Path(output_dir.strip())
+
+        _out_str = output_dir.strip()
+        _out_p   = Path(_out_str)
+        # On Windows a Unix-style path like "/lora_output" is technically absolute
+        # (drive-relative) but the user almost certainly meant a subfolder of the
+        # ComfyUI output directory. Treat any non-absolute path AND any path whose
+        # only "absolute" anchor is a leading slash (no drive letter) as relative to
+        # the ComfyUI output folder.
+        import sys as _sys
+        _unix_style_on_windows = (
+            _sys.platform == "win32"
+            and _out_p.is_absolute()
+            and not _out_p.drive  # e.g. Path("/foo").drive == "" on Windows
+        )
+        if not _out_p.is_absolute() or _unix_style_on_windows:
+            _out_p = Path(folder_paths.get_output_directory()) / _out_p.relative_to(_out_p.anchor)
+            print(f"[LoRA Trainer] output_dir resolved to: {_out_p}", flush=True)
+        output_dir = _out_p
         output_dir.mkdir(parents=True, exist_ok=True)
 
         alpha_val      = float(alpha) if alpha > 0.0 else float(rank)
