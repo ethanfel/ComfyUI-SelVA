@@ -51,7 +51,15 @@ def _find_audio(npz_path: Path) -> Path | None:
 
 
 def _load_audio(path: Path, target_sr: int, duration: float) -> torch.Tensor:
-    waveform, sr = torchaudio.load(str(path))
+    try:
+        waveform, sr = torchaudio.load(str(path))
+    except RuntimeError as e:
+        if "torchcodec" not in str(e).lower() and "libtorchcodec" not in str(e).lower():
+            raise
+        # torchcodec unavailable (FFmpeg shared libs missing) — fall back to soundfile
+        import soundfile as sf
+        data, sr = sf.read(str(path), always_2d=True)  # [frames, channels]
+        waveform = torch.from_numpy(data.T).float()    # [channels, frames]
     if waveform.shape[0] > 1:
         waveform = waveform.mean(0, keepdim=True)
     waveform = waveform.squeeze(0).float()
