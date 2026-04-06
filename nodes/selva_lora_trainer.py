@@ -550,8 +550,11 @@ class SelvaLoraTrainer:
         log_interval = 50
         remaining    = steps - start_step
         pbar_train   = comfy.utils.ProgressBar(remaining)
-        loss_history = []
-        running_loss = 0.0
+        loss_history     = []
+        running_loss     = 0.0
+        grad_norm_history = []
+        running_grad_norm = 0.0
+        grad_norm_count   = 0
 
         meta = {
             "variant":             variant,
@@ -608,18 +611,27 @@ class SelvaLoraTrainer:
                 running_loss += loss.item() * grad_accum
 
                 if step % grad_accum == 0:
-                    torch.nn.utils.clip_grad_norm_(lora_A_params + lora_B_params, max_norm=1.0)
+                    grad_norm = torch.nn.utils.clip_grad_norm_(
+                        lora_A_params + lora_B_params, max_norm=1.0
+                    ).item()
+                    running_grad_norm += grad_norm
+                    grad_norm_count   += 1
                     optimizer.step()
                     scheduler.step()
                     optimizer.zero_grad()
 
                 if step % log_interval == 0:
-                    avg = running_loss / log_interval
+                    avg       = running_loss / log_interval
+                    avg_gnorm = running_grad_norm / max(1, grad_norm_count)
                     loss_history.append(avg)
+                    grad_norm_history.append(round(avg_gnorm, 6))
                     lr_now = scheduler.get_last_lr()[0]
                     print(f"[LoRA Trainer] step {step:5d}/{steps}  "
-                          f"loss={avg:.4f}  lr={lr_now:.2e}  bs={batch_size}", flush=True)
-                    running_loss = 0.0
+                          f"loss={avg:.4f}  grad_norm={avg_gnorm:.4f}  "
+                          f"lr={lr_now:.2e}  bs={batch_size}", flush=True)
+                    running_loss      = 0.0
+                    running_grad_norm = 0.0
+                    grad_norm_count   = 0
 
                     # Live preview: send updated loss curve to ComfyUI frontend
                     preview_img = _draw_loss_curve(loss_history, log_interval, start_step,
@@ -693,10 +705,11 @@ class SelvaLoraTrainer:
 
         loss_curve = _pil_to_tensor(smoothed_img)
         return {
-            "patched_model": patched,
-            "adapter_path":  str(final_path),
-            "loss_curve":    loss_curve,
-            "loss_history":  loss_history,
-            "meta":          meta,
-            "completed":     True,
+            "patched_model":    patched,
+            "adapter_path":     str(final_path),
+            "loss_curve":       loss_curve,
+            "loss_history":     loss_history,
+            "grad_norm_history": grad_norm_history,
+            "meta":             meta,
+            "completed":        True,
         }

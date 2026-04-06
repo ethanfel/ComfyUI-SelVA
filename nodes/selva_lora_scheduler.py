@@ -44,6 +44,24 @@ from .selva_lora_trainer import (
 )
 
 
+def _get_system_info() -> dict:
+    """Collect GPU / torch version info for the summary header."""
+    info: dict = {
+        "torch_version": torch.__version__,
+        "cuda_version":  torch.version.cuda or "N/A",
+        "gpu_name":      None,
+        "gpu_vram_gb":   None,
+    }
+    if torch.cuda.is_available():
+        try:
+            info["gpu_name"]    = torch.cuda.get_device_name(0)
+            props               = torch.cuda.get_device_properties(0)
+            info["gpu_vram_gb"] = round(props.total_memory / 1e9, 1)
+        except Exception:
+            pass
+    return info
+
+
 # Defaults mirror SelvaLoraTrainer INPUT_TYPES defaults
 _PARAM_DEFAULTS = {
     "alpha":               0.0,
@@ -286,6 +304,7 @@ class SelvaLoraScheduler:
             "sweep_file":   str(exp_path),
             "started_at":   datetime.now(timezone.utc).isoformat(),
             "completed_at": None,
+            "system":       _get_system_info(),
             "data_dir":     str(data_dir),
             "n_clips":      n_clips,
             "experiments":  [],
@@ -373,25 +392,38 @@ class SelvaLoraScheduler:
                         ts_mode, ln_sigma, curr_switch, dropout, plus_ratio,
                     )
 
-                duration     = time.monotonic() - t_start
-                loss_history = r["loss_history"]
-                smoothed     = _smooth_losses(loss_history) if loss_history else []
+                duration          = time.monotonic() - t_start
+                loss_history      = r["loss_history"]
+                grad_norm_history = r.get("grad_norm_history", [])
+                smoothed          = _smooth_losses(loss_history) if loss_history else []
 
-                # Compute summary metrics
-                final_loss   = round(smoothed[-1], 6) if smoothed else None
-                min_loss     = round(min(smoothed), 6) if smoothed else None
-                min_idx      = smoothed.index(min(smoothed)) if smoothed else None
+                # Scalar summary metrics
+                final_loss    = round(smoothed[-1], 6) if smoothed else None
+                min_loss      = round(min(smoothed), 6) if smoothed else None
+                min_idx       = smoothed.index(min(smoothed)) if smoothed else None
                 min_loss_step = (min_idx + 1) * log_interval if min_idx is not None else None
 
+                # Stability: std-dev of raw loss over last 25% of steps
+                if loss_history:
+                    quarter    = max(1, len(loss_history) // 4)
+                    last_q     = loss_history[-quarter:]
+                    loss_std_last_quarter = round(float(np.std(last_q)), 6)
+                else:
+                    loss_std_last_quarter = None
+
                 exp_record["results"] = {
-                    "status":         "completed",
-                    "final_loss":     final_loss,
-                    "min_loss":       min_loss,
-                    "min_loss_step":  min_loss_step,
-                    "loss_at_steps":  _loss_at_steps(
+                    "status":               "completed",
+                    "final_loss":           final_loss,
+                    "min_loss":             min_loss,
+                    "min_loss_step":        min_loss_step,
+                    "loss_std_last_quarter": loss_std_last_quarter,
+                    "loss_at_steps":        _loss_at_steps(
                         loss_history, log_interval, save_every, 0, steps
                     ),
-                    "duration_seconds": round(duration, 1),
+                    "loss_history":         [round(v, 6) for v in loss_history],
+                    "grad_norm_history":    grad_norm_history,
+                    "log_interval":         log_interval,
+                    "duration_seconds":     round(duration, 1),
                 }
                 exp_record["adapter_path"] = r["adapter_path"]
 
