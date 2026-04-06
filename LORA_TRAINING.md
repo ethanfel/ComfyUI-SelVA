@@ -376,3 +376,35 @@ Make sure the SelVA LoRA Loader output is wired to the **Sampler** input, not th
 
 **Loss plateaus early (above 0.7)**
 Dataset is the bottleneck. Add more clips — diversity matters more than quantity.
+
+---
+
+## Observations (work in progress)
+
+These are empirical findings from ongoing experiments. They will be promoted to the main guide once more validated.
+
+### Precision and batch size
+
+| Config | Smoothed loss at step 2000 | Notes |
+|---|---|---|
+| bf16 batch 1 | ~0.73 | Noisy gradients, slow |
+| bf16 batch 16 | ~0.65 | Stable, plateaued around step 6000–8000 at ~0.59 |
+| bf16 batch 16 logit_normal | ~0.47 | Lower loss floor, similar or marginally better audio |
+| fp32 batch 32 | ~0.58 | Matches bf16 batch 16 at step 6000 already at step 2000 |
+
+**Key finding:** fp32 batch 32 converges to the same perceptual quality point in ~2000 steps that bf16 batch 16 needs 6000+ steps to reach. However, fp32 batch 32 continues descending well past that point on small datasets (10 clips), eventually overfitting. **Stop fp32 batch 32 around step 2000 on a 10-clip dataset** — later checkpoints sound worse despite lower loss.
+
+**Lower loss ≠ better audio.** Once overfitting begins the model memorizes training clips rather than generalizing to new video inputs. Test intermediate checkpoints (e.g. step 500, 1000, 2000) to find the perceptual sweet spot.
+
+### logit_normal vs uniform
+
+logit_normal consistently reaches a lower loss floor than uniform. However perceptual improvement is dataset-dependent — on 10 clips the difference is marginal. May be more impactful with larger datasets. No conclusion yet.
+
+### White noise
+
+Residual white noise on generated audio is primarily a **dataset** problem, not a training one. Observed with all configs on 10 clips. Likely causes:
+- Too few clips for the model to confidently predict the target sound
+- Imprecise extraction prompts producing unfocused sync features
+- Missing mask when multiple objects are in frame
+
+CFG scale amplifies any adapter noise bias. Reducing CFG to 3.0–3.5 or adapter strength to 0.6–0.7 helps at inference.
