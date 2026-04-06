@@ -28,7 +28,24 @@ soundfile
 
 ## Step 1 — Prepare the dataset
 
-### 1.1 Extract visual features in ComfyUI
+### 1.1 Video format
+
+The feature extractor accepts any input but internally resamples frames to fixed square resolutions (384×384 for CLIP, 224×224 for Synchformer). Both encoders were trained on standard video datasets — predominantly landscape footage. This has two practical implications:
+
+**Aspect ratio** — use **16:9 landscape** whenever possible. Portrait clips (9:16) are mechanically supported but the bicubic stretch into square distorts the image relative to the encoders' training distribution, which can degrade sync feature quality. If your source is portrait, center-crop to square before extraction. Square (1:1) is also fine.
+
+**Resolution** — anything ≥ 480p is sufficient. The extractor downscales to 384px and 224px regardless of source resolution; higher resolution adds no benefit.
+
+**Frame rate** — any. Connect `VHS_VIDEOINFO` from VHS LoadVideo to the feature extractor so fps is read automatically from the file instead of being entered manually.
+
+| Format | Recommendation |
+|---|---|
+| Aspect ratio | 16:9 landscape (preferred) or 1:1 square |
+| Resolution | ≥ 480p (720p+ is fine, no upper limit that matters) |
+| Frame rate | Any — set via VHS_VIDEOINFO |
+| Portrait (9:16) | Center-crop to square before extraction |
+
+### 1.2 Extract visual features in ComfyUI
 
 For each video clip you want to train on:
 
@@ -71,7 +88,7 @@ If the video frame contains multiple moving objects, CLIP and sync features will
 - Leave `mask_strength` at `1.0` for clean isolation; lower it only if the masked region is very small and the model loses context.
 - Re-extract features with a mask even if you already have `.npz` files — better features directly reduce training noise.
 
-### 1.2 Collect clean audio
+### 1.3 Collect clean audio
 
 For each `.npz` file, place a matching audio file with the **same filename stem** in the same directory:
 
@@ -91,7 +108,7 @@ Supported audio formats: `.wav`, `.flac`, `.ogg`, `.aiff`, `.aif`
 
 The audio will be automatically resampled and trimmed/padded to match the model's expected duration. Use clean, isolated recordings — no background noise.
 
-### 1.3 Optional: prompts.txt
+### 1.4 Optional: prompts.txt
 
 If you want a different prompt at training time than the one embedded in the `.npz`, create a `prompts.txt` file in the dataset directory:
 
