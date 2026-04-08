@@ -63,13 +63,17 @@ class SelvaVaeRoundtrip:
             )
 
         # Load encoder only — decoder/vocoder come from model["feature_utils"]
-        # to mirror exactly what the sampler uses
+        # to mirror exactly what the sampler uses.
+        # AutoEncoderModule requires vocoder_ckpt_path even when only encoding,
+        # so pass the BigVGAN path (weights won't actually be used for decode here).
+        bigvgan_path = _SELVA_DIR / "ext" / "best_netG.pt"
         print("[VAE Roundtrip] Loading VAE encoder...", flush=True)
         vae_enc = FeaturesUtils(
             tod_vae_ckpt=str(vae_path),
             enable_conditions=False,
             mode=mode,
             need_vae_encoder=True,
+            bigvgan_vocoder_ckpt=str(bigvgan_path) if bigvgan_path.exists() else None,
         ).to(device).eval()
 
         try:
