@@ -17,7 +17,6 @@ Usage:
 """
 
 import copy
-import math
 import random
 import traceback
 from pathlib import Path
@@ -33,7 +32,6 @@ from .selva_lora_trainer import (
     _prepare_dataset,
     _spectral_metrics,
     _save_spectrogram,
-    _pil_to_tensor,
 )
 
 
@@ -344,13 +342,15 @@ class SelvaTextualInversionTrainer:
                         import soundfile as sf
                         sf.write(str(wav_path), wav.squeeze(0).numpy(), sr)
 
-                    metrics = _spectral_metrics(wav, sr)
-                    if metrics:
-                        img = _save_spectrogram(wav, sr, ckpt_dir / f"step_{step:05d}.png")
+                    try:
+                        metrics = _spectral_metrics(wav, sr)
+                        _save_spectrogram(wav, sr, ckpt_dir / f"step_{step:05d}.png")
                         print(f"[TI Trainer] step {step}  "
                               f"centroid={metrics['spectral_centroid_hz']:.0f}Hz  "
                               f"flatness={metrics['spectral_flatness']:.4f}  "
                               f"hf={metrics['hf_energy_ratio']:.3f}", flush=True)
+                    except Exception as e:
+                        print(f"[TI Trainer] Spectral/spectrogram failed: {e}", flush=True)
 
                 print(f"[TI Trainer] Checkpoint: {ckpt_path}", flush=True)
 
