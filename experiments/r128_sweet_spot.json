@@ -1,0 +1,88 @@
+{
+  "name": "r128_sweet_spot",
+  "description": "Find the noise-free sweet spot on rank 128. LoRA+ ratio=16 caused noise — testing higher base LR without LoRA+ as a cleaner alternative. Target loss range 0.25–0.35. Also probing rank 256 since 102GB VRAM allows it.",
+  "data_dir": "/media/unraid/davinci/Selva/BJ/features",
+  "output_root": "/media/unraid/davinci/Selva/BJ/experiment/r128_sweet_spot",
+  "base": {
+    "steps": 10000,
+    "rank": 128,
+    "alpha": 0.0,
+    "lr": 1e-4,
+    "batch_size": 16,
+    "warmup_steps": 200,
+    "grad_accum": 1,
+    "save_every": 2000,
+    "seed": 42,
+    "target": "attn.qkv",
+    "timestep_mode": "uniform",
+    "logit_normal_sigma": 1.0,
+    "curriculum_switch": 0.6,
+    "lora_dropout": 0.0,
+    "lora_plus_ratio": 1.0
+  },
+  "experiments": [
+
+    {
+      "id": "g1_r128_lr_2e4",
+      "group": "lr",
+      "description": "LR=2e-4. Conservative 2× step up from baseline — noise-free descent toward sweet spot.",
+      "lr": 2e-4
+    },
+    {
+      "id": "g1_r128_lr_3e4",
+      "group": "lr",
+      "description": "LR=3e-4. 3× baseline — landed at 0.41 on r64, should reach 0.25–0.35 on r128.",
+      "lr": 3e-4
+    },
+    {
+      "id": "g1_r128_lr_5e4",
+      "group": "lr",
+      "description": "LR=5e-4. Aggressive but no LoRA+ B-matrix asymmetry — cleaner noise profile.",
+      "lr": 5e-4
+    },
+
+    {
+      "id": "g2_r128_curriculum",
+      "group": "curriculum",
+      "description": "Curriculum only at baseline LR. Clean slow descent — reference for what curriculum contributes alone.",
+      "timestep_mode": "curriculum"
+    },
+    {
+      "id": "g2_r128_lr_3e4_curriculum",
+      "group": "curriculum",
+      "description": "LR=3e-4 + curriculum. Speed of higher LR with coverage of curriculum — no LoRA+.",
+      "lr": 3e-4,
+      "timestep_mode": "curriculum"
+    },
+    {
+      "id": "g2_r128_lr_3e4_curriculum_dropout",
+      "group": "curriculum",
+      "description": "LR=3e-4 + curriculum + dropout=0.05. Full controlled stack without LoRA+.",
+      "lr": 3e-4,
+      "timestep_mode": "curriculum",
+      "lora_dropout": 0.05
+    },
+
+    {
+      "id": "g3_r128_lora_plus_4",
+      "group": "lora_plus",
+      "description": "LoRA+ ratio=4 (lr_B=4e-4). Much more conservative than ratio=16 — tests if noise came from ratio not the technique.",
+      "lora_plus_ratio": 4.0
+    },
+
+    {
+      "id": "g4_r256_baseline",
+      "group": "rank256",
+      "description": "Rank 256 at baseline LR. 102GB VRAM makes this viable — does more capacity keep helping?",
+      "rank": 256
+    },
+    {
+      "id": "g4_r256_lr_3e4",
+      "group": "rank256",
+      "description": "Rank 256 + LR=3e-4. Best rank + best LR candidate combined.",
+      "rank": 256,
+      "lr": 3e-4
+    }
+
+  ]
+}
