@@ -19,6 +19,8 @@ _NODES = {
     "SelvaTiScheduler":                      (".selva_ti_scheduler",                      "SelvaTiScheduler",                      "SelVA TI Scheduler"),
     "SelvaActivationSteeringExtractor":      (".selva_activation_steering_extractor",      "SelvaActivationSteeringExtractor",      "SelVA Activation Steering Extractor"),
     "SelvaActivationSteeringLoader":         (".selva_activation_steering_loader",         "SelvaActivationSteeringLoader",         "SelVA Activation Steering Loader"),
+    "SelvaBigvganTrainer":                   (".selva_bigvgan_trainer",                    "SelvaBigvganTrainer",                   "SelVA BigVGAN Trainer"),
+    "SelvaBigvganLoader":                    (".selva_bigvgan_loader",                     "SelvaBigvganLoader",                    "SelVA BigVGAN Loader"),
 }
 
 for key, (module_path, class_name, display_name) in _NODES.items():
