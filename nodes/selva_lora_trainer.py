@@ -134,9 +134,12 @@ def _eval_sample(generator, feature_utils_orig, dataset, seq_cfg, device, dtype,
         elif audio.dim() == 3 and audio.shape[1] != 1:
             audio = audio.mean(dim=1, keepdim=True)
 
-        target_rms = 10 ** (-20.0 / 20.0)   # -20 dBFS
+        target_rms = 10 ** (-23.0 / 20.0)   # -23 dBFS matches training data
         rms = audio.pow(2).mean().sqrt().clamp(min=1e-8)
-        audio = (audio * (target_rms / rms)).clamp(-1, 1)
+        audio = audio * (target_rms / rms)
+        peak = audio.abs().max().clamp(min=1e-8)
+        if peak > 1.0:
+            audio = audio / peak
         return audio.squeeze(0), seq_cfg.sampling_rate   # [1, L]
 
     except Exception as e:

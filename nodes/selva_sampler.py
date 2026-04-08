@@ -174,7 +174,12 @@ class SelvaSampler:
         if normalize:
             target_rms = 10 ** (target_lufs / 20.0)
             rms = audio.pow(2).mean().sqrt().clamp(min=1e-8)
-            audio = (audio * (target_rms / rms)).clamp(-1, 1)
+            audio = audio * (target_rms / rms)
+            # If RMS normalization pushes peaks into clipping, scale back to
+            # preserve dynamics rather than hard-clipping (no saturation)
+            peak = audio.abs().max().clamp(min=1e-8)
+            if peak > 1.0:
+                audio = audio / peak
         print(f"[SelVA] audio: shape={tuple(audio.shape)} sr={sample_rate}", flush=True)
 
         return ({"waveform": audio.cpu(), "sample_rate": sample_rate},)
