@@ -36,8 +36,8 @@ class SelvaSampler:
                     "tooltip": "Normalize output level. Uses RMS normalization to target_lufs rather than peak normalization, so level matches typical audio content.",
                 }),
                 "target_lufs": ("FLOAT", {
-                    "default": -20.0, "min": -40.0, "max": -6.0, "step": 1.0,
-                    "tooltip": "Target RMS level in dBFS when normalize=True. -20 matches typical processed audio. Increase toward -14 for louder output, decrease toward -30 for quieter.",
+                    "default": -27.0, "min": -40.0, "max": -6.0, "step": 1.0,
+                    "tooltip": "Target RMS level in dBFS when normalize=True. -27 matches the measured RMS of LUFS-normalized training clips. Increase toward -20 for louder output.",
                 }),
             },
         }
@@ -49,7 +49,7 @@ class SelvaSampler:
     CATEGORY = SELVA_CATEGORY
     DESCRIPTION = "Generates audio from video features using SelVA's flow matching ODE. Supports text prompts and negative prompts via classifier-free guidance."
 
-    def generate(self, model, features, prompt, negative_prompt, duration, steps, cfg_strength, seed, normalize=True, target_lufs=-20.0):
+    def generate(self, model, features, prompt, negative_prompt, duration, steps, cfg_strength, seed, normalize=True, target_lufs=-27.0):
         import dataclasses
         from selva_core.model.flow_matching import FlowMatching
 

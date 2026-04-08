@@ -139,7 +139,7 @@ def _eval_sample(generator, feature_utils_orig, dataset, seq_cfg, device, dtype,
         elif audio.dim() == 3 and audio.shape[1] != 1:
             audio = audio.mean(dim=1, keepdim=True)
 
-        target_rms = 10 ** (-23.0 / 20.0)   # -23 dBFS matches training data
+        target_rms = 10 ** (-27.0 / 20.0)   # -27 dBFS matches measured RMS of training clips
         rms = audio.pow(2).mean().sqrt().clamp(min=1e-8)
         audio = audio * (target_rms / rms)
         peak = audio.abs().max().clamp(min=1e-8)
