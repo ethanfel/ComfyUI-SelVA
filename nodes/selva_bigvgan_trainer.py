@@ -232,7 +232,7 @@ class SelvaBigvganTrainer:
                             start = random.randint(0, clip.shape[0] - segment_samples)
                             batch.append(clip[start : start + segment_samples])
 
-                        target_flat = torch.stack(batch).to(device, dtype)   # [B, T]
+                        target_flat = torch.stack(batch).to(device, dtype).clone()  # [B, T]
                         target_wav  = target_flat.unsqueeze(1)                # [B, 1, T]
 
                         # Fixed target mel (no grad needed here)
