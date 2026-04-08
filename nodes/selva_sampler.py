@@ -3,6 +3,7 @@ import comfy.utils
 import comfy.model_management
 
 from .utils import SELVA_CATEGORY, get_device, get_offload_device, soft_empty_cache
+from .selva_textual_inversion_trainer import _inject_tokens
 
 
 class SelvaSampler:
@@ -118,16 +119,15 @@ class SelvaSampler:
                 neg_text_clip = feature_utils.encode_text_clip([negative_prompt]) \
                     if negative_prompt.strip() else None
 
-                # Inject textual inversion tokens into last K positions of CLIP embedding
+                # Inject textual inversion tokens into CLIP conditioning
                 if textual_inversion is not None:
-                    emb = textual_inversion["embeddings"].to(device, dtype)  # [K, 1024]
-                    K = emb.shape[0]
-                    text_clip = text_clip.clone()
-                    text_clip[:, -K:, :] = emb.unsqueeze(0)
+                    emb         = textual_inversion["embeddings"].to(device, dtype)  # [K, 1024]
+                    K           = emb.shape[0]
+                    inject_mode = textual_inversion.get("inject_mode", "suffix")
+                    text_clip   = _inject_tokens(text_clip, emb, K, inject_mode)
                     if neg_text_clip is not None:
-                        neg_text_clip = neg_text_clip.clone()
-                        neg_text_clip[:, -K:, :] = emb.unsqueeze(0)
-                    print(f"[SelVA] Textual inversion: injected {K} tokens into CLIP conditioning",
+                        neg_text_clip = _inject_tokens(neg_text_clip, emb, K, inject_mode)
+                    print(f"[SelVA] Textual inversion: {K} tokens  mode={inject_mode}",
                           flush=True)
 
                 conditions = net_generator.preprocess_conditions(clip_f, sync_f, text_clip)

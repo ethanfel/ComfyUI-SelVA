@@ -82,6 +82,7 @@ _PARAM_DEFAULTS = {
     "seed":         42,
     "save_every":   1000,
     "init_text":    "",
+    "inject_mode":  "suffix",
 }
 
 _PALETTE = [
@@ -356,6 +357,7 @@ class SelvaTiScheduler:
             seed        = int(cfg["seed"])
             save_every  = int(cfg["save_every"])
             init_text   = str(cfg["init_text"])
+            inject_mode = str(cfg["inject_mode"])
 
             output_dir = output_root / exp_id
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -365,7 +367,8 @@ class SelvaTiScheduler:
             if exp_desc:
                 print(f"[TI Scheduler] {exp_desc}", flush=True)
             print(f"[TI Scheduler] n_tokens={n_tokens}  lr={lr:.2e}  steps={steps}  "
-                  f"batch_size={batch_size}  warmup={warmup}  seed={seed}", flush=True)
+                  f"batch_size={batch_size}  warmup={warmup}  seed={seed}  "
+                  f"inject_mode={inject_mode}", flush=True)
             if init_text:
                 print(f"[TI Scheduler] init_text='{init_text}'", flush=True)
 
@@ -381,6 +384,7 @@ class SelvaTiScheduler:
                     "seed":         seed,
                     "save_every":   save_every,
                     "init_text":    init_text,
+                    "inject_mode":  inject_mode,
                 },
                 "results":        {"status": "running"},
                 "embeddings_path": None,
@@ -397,7 +401,7 @@ class SelvaTiScheduler:
                         device, dtype, mode,
                         data_dir, out_path,
                         n_tokens, steps, lr, batch_size,
-                        warmup, seed, save_every, init_text,
+                        warmup, seed, save_every, init_text, inject_mode,
                     )
 
                 duration     = time.monotonic() - t_start

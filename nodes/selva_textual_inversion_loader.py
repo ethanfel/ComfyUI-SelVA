@@ -57,10 +57,14 @@ class SelvaTextualInversionLoader:
             print(f"[TI Loader]   trained {data['step']} / {data.get('steps', '?')} steps  "
                   f"lr={data.get('lr', '?')}", flush=True)
 
+        inject_mode = data.get("inject_mode", "suffix")
+        print(f"[TI Loader]   inject_mode='{inject_mode}'", flush=True)
+
         bundle = {
-            "embeddings": embeddings,   # [K, 1024] float32 on CPU
-            "n_tokens":   n_tokens,
-            "path":       str(p),
-            "init_text":  data.get("init_text", ""),
+            "embeddings":  embeddings,      # [K, 1024] float32 on CPU
+            "n_tokens":    n_tokens,
+            "inject_mode": inject_mode,
+            "path":        str(p),
+            "init_text":   data.get("init_text", ""),
         }
         return (bundle,)
