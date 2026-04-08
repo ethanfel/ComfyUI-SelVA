@@ -429,6 +429,7 @@ class SelvaLoraScheduler:
                 duration          = time.monotonic() - t_start
                 loss_history      = r["loss_history"]
                 grad_norm_history = r.get("grad_norm_history", [])
+                spectral_metrics  = r.get("spectral_metrics", {})
                 run_start_step    = r.get("start_step", 0)
                 smoothed          = _smooth_losses(loss_history) if loss_history else []
 
@@ -460,6 +461,7 @@ class SelvaLoraScheduler:
                     ),
                     "loss_history":         [round(v, 6) for v in loss_history],
                     "grad_norm_history":    grad_norm_history,
+                    "spectral_metrics":     {str(k): v for k, v in spectral_metrics.items()},
                     "log_interval":         log_interval,
                     "duration_seconds":     round(duration, 1),
                 }
