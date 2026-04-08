@@ -38,6 +38,7 @@ import folder_paths
 from .utils import SELVA_CATEGORY, get_device
 from .selva_lora_trainer import (
     SelvaLoraTrainer,
+    SkipExperiment,
     _prepare_dataset,
     _smooth_losses,
     _pil_to_tensor,
@@ -473,6 +474,18 @@ class SelvaLoraScheduler:
                     "log_interval": log_interval,
                     "start_step":   0,
                 })
+
+            except SkipExperiment as e:
+                duration = time.monotonic() - t_start
+                print(f"[LoRA Scheduler] Experiment '{exp_id}' skipped: {e}", flush=True)
+                exp_record["results"] = {
+                    "status":           "skipped",
+                    "error":            str(e),
+                    "duration_seconds": round(duration, 1),
+                }
+                _write_summary()
+                pbar_outer.update(1)
+                continue
 
             except Exception as e:
                 duration = time.monotonic() - t_start

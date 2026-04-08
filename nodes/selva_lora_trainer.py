@@ -4,6 +4,10 @@ import random
 import traceback
 from pathlib import Path
 
+
+class SkipExperiment(Exception):
+    """Raised when skip_current.flag is found — signals the scheduler to move to the next experiment."""
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -751,6 +755,11 @@ class SelvaLoraTrainer:
                     optimizer.zero_grad()
 
                 if step % log_interval == 0:
+                    skip_flag = output_dir.parent / "skip_current.flag"
+                    if skip_flag.exists():
+                        skip_flag.unlink()
+                        raise SkipExperiment(f"skip_current.flag detected at step {step} — skipping to next experiment")
+
                     avg = running_loss / log_interval
                     loss_history.append(avg)
                     # grad_norm_count can be 0 when grad_accum > log_interval
