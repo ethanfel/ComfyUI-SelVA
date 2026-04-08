@@ -478,10 +478,17 @@ class SelvaLoraScheduler:
             except SkipExperiment as e:
                 duration = time.monotonic() - t_start
                 print(f"[LoRA Scheduler] Experiment '{exp_id}' skipped: {e}", flush=True)
+                partial   = getattr(e, "partial", {})
+                lh        = partial.get("loss_history", [])
+                smoothed  = _smooth_losses(lh) if lh else []
                 exp_record["results"] = {
-                    "status":           "skipped",
-                    "error":            str(e),
-                    "duration_seconds": round(duration, 1),
+                    "status":            "skipped",
+                    "stopped_at_step":   partial.get("stopped_at_step"),
+                    "final_loss":        round(smoothed[-1], 6) if smoothed else None,
+                    "loss_history":      [round(v, 6) for v in lh],
+                    "grad_norm_history": partial.get("grad_norm_history", []),
+                    "spectral_metrics":  {str(k): v for k, v in partial.get("spectral_metrics", {}).items()},
+                    "duration_seconds":  round(duration, 1),
                 }
                 _write_summary()
                 pbar_outer.update(1)

@@ -758,7 +758,14 @@ class SelvaLoraTrainer:
                     skip_flag = output_dir.parent / "skip_current.flag"
                     if skip_flag.exists():
                         skip_flag.unlink()
-                        raise SkipExperiment(f"skip_current.flag detected at step {step} — skipping to next experiment")
+                        exc = SkipExperiment(f"skip_current.flag detected at step {step} — skipping to next experiment")
+                        exc.partial = {
+                            "loss_history":      list(loss_history),
+                            "grad_norm_history": list(grad_norm_history),
+                            "spectral_metrics":  dict(spectral_metrics),
+                            "stopped_at_step":   step,
+                        }
+                        raise exc
 
                     avg = running_loss / log_interval
                     loss_history.append(avg)

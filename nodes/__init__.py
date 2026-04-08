@@ -9,6 +9,7 @@ _NODES = {
     "SelvaLoraTrainer":      (".selva_lora_trainer",      "SelvaLoraTrainer",      "SelVA LoRA Trainer"),
     "SelvaLoraScheduler":    (".selva_lora_scheduler",    "SelvaLoraScheduler",    "SelVA LoRA Scheduler"),
     "SelvaDatasetBrowser":   (".selva_dataset_browser",   "SelvaDatasetBrowser",   "SelVA Dataset Browser"),
+    "SelvaSkipExperiment":   (".selva_skip_experiment",   "SelvaSkipExperiment",   "SelVA Skip Experiment"),
 }
 
 for key, (module_path, class_name, display_name) in _NODES.items():
