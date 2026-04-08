@@ -222,6 +222,12 @@ class SelvaBigvganTrainer:
         try:
             with torch.inference_mode(False):
                 with torch.enable_grad():
+                    # Vocoder parameters were loaded inside ComfyUI's inference_mode()
+                    # and are inference tensors. Autograd cannot save them for backward.
+                    # Clone inside inference_mode(False) to get normal tensors.
+                    for param in vocoder.parameters():
+                        param.data = param.data.clone()
+
                     vocoder.train()
 
                     for step in range(steps):
