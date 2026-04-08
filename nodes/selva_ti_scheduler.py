@@ -326,8 +326,17 @@ class SelvaTiScheduler:
                 "experiments":  [],
             }
 
+        comparison_img_path = output_root / "loss_comparison.png"
+
         def _write_summary():
             summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+        def _save_comparison():
+            try:
+                img = _draw_comparison_curves(all_curve_data)
+                img.save(str(comparison_img_path))
+            except Exception as e:
+                print(f"[TI Scheduler] Comparison image failed: {e}", flush=True)
 
         _write_summary()
 
@@ -452,6 +461,7 @@ class SelvaTiScheduler:
                 continue
 
             _write_summary()
+            _save_comparison()
             pbar_outer.update(1)
 
         # ------------------------------------------------------------------
@@ -462,10 +472,8 @@ class SelvaTiScheduler:
         print(f"\n[TI Scheduler] Sweep complete. Summary: {summary_path}", flush=True)
 
         # ------------------------------------------------------------------
-        # 7. Comparison image
+        # 7. Comparison image (final update, then return to ComfyUI)
         # ------------------------------------------------------------------
+        _save_comparison()
         comparison_img = _draw_comparison_curves(all_curve_data)
-        comparison_img.save(str(output_root / "loss_comparison.png"))
-        comparison_tensor = _pil_to_tensor(comparison_img)
-
-        return (str(summary_path), comparison_tensor)
+        return (str(summary_path), _pil_to_tensor(comparison_img))
