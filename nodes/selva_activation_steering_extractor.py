@@ -27,7 +27,7 @@ from .selva_lora_trainer import _prepare_dataset
 def _collect_activations(generator, conditions, latent, t_tensor):
     """Run one predict_flow call, collecting latent hidden states per block.
 
-    Returns a list of [hidden_dim] float32 CPU tensors,
+    Returns a list of [seq, hidden_dim] float32 CPU tensors,
     one per block (joint_blocks first, then fused_blocks).
     """
     activations = []
@@ -35,9 +35,7 @@ def _collect_activations(generator, conditions, latent, t_tensor):
     def make_hook(is_joint):
         def hook(module, input, output):
             h = output[0] if is_joint else output
-            # Mean over batch then seq → [hidden]: makes vectors length-agnostic so
-            # they broadcast to any inference duration without shape mismatches.
-            activations.append(h.detach().float().mean(0).mean(0).cpu())  # [hidden]
+            activations.append(h.detach().float().mean(0).cpu())  # [seq, hidden]
         return hook
 
     handles = []
@@ -186,7 +184,7 @@ class SelvaActivationSteeringExtractor:
 
         n_joint = len(generator.joint_blocks)
         payload = {
-            "steering_vectors": steering_vectors,   # list of [hidden] tensors
+            "steering_vectors": steering_vectors,   # list of [seq, hidden] tensors
             "n_blocks":         n_blocks,
             "n_joint":          n_joint,
             "n_fused":          len(generator.fused_blocks),
