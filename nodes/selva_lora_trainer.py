@@ -88,7 +88,7 @@ def _load_npz(path: Path) -> dict:
 # ---------------------------------------------------------------------------
 
 def _eval_sample(generator, feature_utils_orig, dataset, seq_cfg, device, dtype,
-                 num_steps: int = 8, seed: int = 0):
+                 num_steps: int = 25, seed: int = 0):
     """Run a quick no-CFG inference pass on a fixed training clip.
 
     Always uses dataset[0] and a fixed noise seed so samples across checkpoints
