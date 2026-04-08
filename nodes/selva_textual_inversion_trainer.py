@@ -175,12 +175,12 @@ class SelvaTextualInversionTrainer:
                     "tooltip": "Training steps. 3000 is a reasonable starting point.",
                 }),
                 "lr": ("FLOAT", {
-                    "default": 1e-3, "min": 1e-5, "max": 1e-1, "step": 1e-5,
-                    "tooltip": "Learning rate. 1e-3 is a good default for textual inversion (higher than LoRA since there are far fewer parameters).",
+                    "default": 2e-4, "min": 1e-5, "max": 1e-1, "step": 1e-5,
+                    "tooltip": "Learning rate. 2e-4 matches the LoRA working regime. Higher LR (1e-3) causes token norm to drift without plateauing on small datasets.",
                 }),
                 "batch_size": ("INT", {
-                    "default": 16, "min": 1, "max": 64,
-                    "tooltip": "Clips sampled per training step.",
+                    "default": 4, "min": 1, "max": 64,
+                    "tooltip": "Clips sampled per training step. Smaller batch (4–8) gives more diverse gradients and helps token norm saturate rather than drift.",
                 }),
                 "seed": ("INT", {"default": 42, "min": 0, "max": 0xFFFFFFFF}),
                 "save_every": ("INT", {

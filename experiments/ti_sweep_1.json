@@ -1,6 +1,6 @@
 {
   "name": "ti_sweep_1",
-  "description": "First TI sweep: inject position, token count, learning rate, and warm init. n4_baseline already completed (suffix, loss barely moved — model likely ignores last-K positions). Priority: prefix injection group.",
+  "description": "First TI sweep. n4_baseline (suffix, batch=16, lr=1e-3) completed — loss 1.025→0.963, plateau after step 1500, token_norm grew linearly without saturation (overshoot sign). Now testing: prefix injection, lower LR, smaller batch.",
   "data_dir": "/media/unraid/davinci/Selva/BJ/features",
   "output_root": "/media/unraid/davinci/Selva/BJ/experiment/ti_sweep_1",
   "base": {
@@ -18,55 +18,66 @@
 
     {
       "id": "n4_baseline",
-      "group": "suffix_token_count",
-      "description": "4 tokens, suffix, lr=1e-3, random init. COMPLETED — loss 1.025→0.965, nearly flat. Token norm grew linearly to 3.2 with no plateau. Model appears to ignore last-K positions."
-    },
-    {
-      "id": "n8",
-      "group": "suffix_token_count",
-      "description": "8 tokens, suffix, lr=1e-3. More capacity — does it do better than n4_baseline?",
-      "n_tokens": 8
+      "group": "reference",
+      "description": "COMPLETED. batch=16, lr=1e-3, suffix. Reference. Loss plateau ~0.963, token_norm linear growth to 3.2 — LR too high for the parameter count."
     },
 
     {
       "id": "n4_prefix",
       "group": "prefix_inject",
-      "description": "4 tokens at positions 1:5 (after BOS). Prefix positions carry the highest attention weight in CLIP — should produce much stronger loss signal than suffix.",
+      "description": "Same as baseline but prefix injection. Tests whether suffix positions are limiting signal — if prefix loss goes lower or converges faster, suffix was the bottleneck.",
       "inject_mode": "prefix"
     },
+
+    {
+      "id": "lr_low_b4",
+      "group": "lr_batch",
+      "description": "lr=2e-4, batch=4. Matches LoRA's working regime. Smaller batch = noisier but more diverse gradients; lower LR = smaller steps, token_norm should plateau rather than drift.",
+      "lr": 2e-4,
+      "batch_size": 4
+    },
+    {
+      "id": "lr_mid_b8",
+      "group": "lr_batch",
+      "description": "lr=5e-4, batch=8. Middle ground — half the baseline LR and batch. Token norm should grow slower and saturate.",
+      "lr": 5e-4,
+      "batch_size": 8
+    },
+    {
+      "id": "lr_low_b4_prefix",
+      "group": "lr_batch",
+      "description": "lr=2e-4, batch=4, prefix. Best LR/batch regime + best injection position combined.",
+      "lr": 2e-4,
+      "batch_size": 4,
+      "inject_mode": "prefix"
+    },
+
     {
       "id": "n8_prefix",
       "group": "prefix_inject",
-      "description": "8 tokens at prefix positions. More capacity + high-attention positions.",
+      "description": "8 tokens, prefix, baseline LR/batch. More capacity at the better injection position.",
       "n_tokens": 8,
       "inject_mode": "prefix"
     },
     {
       "id": "n4_prefix_warm",
       "group": "prefix_inject",
-      "description": "4 tokens, prefix, warm-started from 'mechanical impact sound design'. Best of both: semantically meaningful start + strong gradient signal.",
+      "description": "4 tokens, prefix, warm-started from 'mechanical impact sound design'.",
       "inject_mode": "prefix",
       "init_text": "mechanical impact sound design"
     },
 
     {
-      "id": "lr_5e4",
-      "group": "learning_rate",
-      "description": "4 tokens, suffix, lr=5e-4. Slower convergence — mainly a baseline comparison for the prefix group.",
-      "lr": 5e-4
+      "id": "n8",
+      "group": "suffix_token_count",
+      "description": "8 tokens, suffix, baseline LR/batch. Capacity ablation vs n4_baseline.",
+      "n_tokens": 8
     },
     {
       "id": "lr_2e3",
-      "group": "learning_rate",
-      "description": "4 tokens, suffix, lr=2e-3. Faster early movement — does token norm plateau earlier?",
+      "group": "lr_batch",
+      "description": "lr=2e-3, baseline batch. Expected to plateau earlier and higher than baseline — confirms LR is the issue.",
       "lr": 2e-3
-    },
-
-    {
-      "id": "n4_warm",
-      "group": "warm_init",
-      "description": "4 tokens, suffix, warm-started from 'mechanical impact sound design'.",
-      "init_text": "mechanical impact sound design"
     }
 
   ]

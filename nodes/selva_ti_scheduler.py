@@ -75,9 +75,9 @@ def _get_system_info() -> dict:
 
 _PARAM_DEFAULTS = {
     "n_tokens":     4,
-    "lr":           1e-3,
+    "lr":           2e-4,
     "steps":        3000,
-    "batch_size":   16,
+    "batch_size":   4,
     "warmup_steps": 100,
     "seed":         42,
     "save_every":   1000,
