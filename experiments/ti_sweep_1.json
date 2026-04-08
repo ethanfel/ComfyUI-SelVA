@@ -1,16 +1,16 @@
 {
   "name": "ti_sweep_1",
-  "description": "First TI sweep. n4_baseline (suffix, batch=16, lr=1e-3) completed — loss 1.025→0.963, plateau after step 1500, token_norm grew linearly without saturation (overshoot sign). Now testing: prefix injection, lower LR, smaller batch.",
+  "description": "First TI sweep. n4_baseline (suffix, batch=16, lr=1e-3) completed — buzz artifact diagnosed as token norm drifting to 3.2x outside CLIP manifold. All new experiments use norm clamping (auto from dataset) + corrected lr/batch.",
   "data_dir": "/media/unraid/davinci/Selva/BJ/features",
   "output_root": "/media/unraid/davinci/Selva/BJ/experiment/ti_sweep_1",
   "base": {
     "steps": 3000,
-    "batch_size": 16,
+    "batch_size": 4,
     "warmup_steps": 100,
     "save_every": 1000,
     "seed": 42,
     "init_text": "",
-    "lr": 1e-3,
+    "lr": 2e-4,
     "n_tokens": 4,
     "inject_mode": "suffix"
   },
@@ -19,65 +19,33 @@
     {
       "id": "n4_baseline",
       "group": "reference",
-      "description": "COMPLETED. batch=16, lr=1e-3, suffix. Reference. Loss plateau ~0.963, token_norm linear growth to 3.2 — LR too high for the parameter count."
+      "description": "COMPLETED (old code, no norm clamp). batch=16, lr=1e-3. Token norm drifted to 3.2 → buzz artifact. Kept for loss curve comparison only."
     },
 
     {
-      "id": "n4_prefix",
-      "group": "prefix_inject",
-      "description": "Same as baseline but prefix injection. Tests whether suffix positions are limiting signal — if prefix loss goes lower or converges faster, suffix was the bottleneck.",
+      "id": "n4_clamped",
+      "group": "norm_clamp",
+      "description": "Same as baseline but with norm clamping enabled. Primary diagnostic: does clamping alone fix the buzz? lr=2e-4, batch=4, suffix."
+    },
+    {
+      "id": "n4_prefix_clamped",
+      "group": "norm_clamp",
+      "description": "Prefix injection + norm clamping. Best of both: high-attention positions, tokens stay on CLIP manifold.",
       "inject_mode": "prefix"
     },
-
     {
-      "id": "lr_low_b4",
-      "group": "lr_batch",
-      "description": "lr=2e-4, batch=4. Matches LoRA's working regime. Smaller batch = noisier but more diverse gradients; lower LR = smaller steps, token_norm should plateau rather than drift.",
-      "lr": 2e-4,
-      "batch_size": 4
-    },
-    {
-      "id": "lr_mid_b8",
-      "group": "lr_batch",
-      "description": "lr=5e-4, batch=8. Middle ground — half the baseline LR and batch. Token norm should grow slower and saturate.",
-      "lr": 5e-4,
-      "batch_size": 8
-    },
-    {
-      "id": "lr_low_b4_prefix",
-      "group": "lr_batch",
-      "description": "lr=2e-4, batch=4, prefix. Best LR/batch regime + best injection position combined.",
-      "lr": 2e-4,
-      "batch_size": 4,
-      "inject_mode": "prefix"
-    },
-
-    {
-      "id": "n8_prefix",
-      "group": "prefix_inject",
-      "description": "8 tokens, prefix, baseline LR/batch. More capacity at the better injection position.",
+      "id": "n8_prefix_clamped",
+      "group": "norm_clamp",
+      "description": "8 tokens, prefix, clamped. More capacity without the artifact.",
       "n_tokens": 8,
       "inject_mode": "prefix"
     },
     {
-      "id": "n4_prefix_warm",
-      "group": "prefix_inject",
-      "description": "4 tokens, prefix, warm-started from 'mechanical impact sound design'.",
+      "id": "n4_prefix_warm_clamped",
+      "group": "norm_clamp",
+      "description": "4 tokens, prefix, warm init from 'mechanical impact sound design', clamped. Should converge fastest — starts in-manifold, stays in-manifold.",
       "inject_mode": "prefix",
       "init_text": "mechanical impact sound design"
-    },
-
-    {
-      "id": "n8",
-      "group": "suffix_token_count",
-      "description": "8 tokens, suffix, baseline LR/batch. Capacity ablation vs n4_baseline.",
-      "n_tokens": 8
-    },
-    {
-      "id": "lr_2e3",
-      "group": "lr_batch",
-      "description": "lr=2e-3, baseline batch. Expected to plateau earlier and higher than baseline — confirms LR is the issue.",
-      "lr": 2e-3
     }
 
   ]
