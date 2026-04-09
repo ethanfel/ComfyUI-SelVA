@@ -124,15 +124,14 @@ class SelvaVaeRoundtrip:
                       flush=True)
 
                 # Decode using model's feature_utils — same path as the sampler
-                orig_device = next(feature_utils.parameters()).device
-                if orig_device != device:
-                    feature_utils.to(device)
+                tod = feature_utils.tod
+                tod_orig_device = next(tod.parameters()).device
+                tod.to(device)
                 try:
                     spec = feature_utils.decode(latent_unnorm)
                     out  = feature_utils.vocode(spec)
                 finally:
-                    if orig_device != device:
-                        feature_utils.to(orig_device)
+                    tod.to(tod_orig_device)
 
             out = out.float().cpu()
             if out.dim() == 1:

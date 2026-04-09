@@ -121,16 +121,18 @@ def _eval_sample(generator, feature_utils_orig, dataset, seq_cfg, device, dtype,
             x1_pred   = eval_fm.to_data(velocity_fn, x0)
             x1_unnorm = generator.unnormalize(x1_pred)
 
-            # feature_utils_orig may be on CPU (offload strategy) — move temporarily
-            orig_device = next(feature_utils_orig.parameters()).device
-            if orig_device != device:
-                feature_utils_orig.to(device)
+            # Only move the VAE+vocoder (tod) to GPU — avoids moving the
+            # entire FeaturesUtils (CLIP, T5, Synchformer) which wastes VRAM
+            # and fixes mixed-device state issues where the first parameter
+            # check could miss CPU-stranded vocoder weights.
+            tod = feature_utils_orig.tod
+            tod_orig_device = next(tod.parameters()).device
+            tod.to(device)
             try:
                 spec  = feature_utils_orig.decode(x1_unnorm)
                 audio = feature_utils_orig.vocode(spec)
             finally:
-                if orig_device != device:
-                    feature_utils_orig.to(orig_device)
+                tod.to(tod_orig_device)
 
         audio = audio.float().cpu()
         if audio.dim() == 2:

@@ -93,15 +93,14 @@ def _eval_sample_ti(generator, learned_tokens, n_tokens, inject_mode,
             x1_pred   = eval_fm.to_data(velocity_fn, x0)
             x1_unnorm = generator.unnormalize(x1_pred)
 
-            orig_dev = next(feature_utils_orig.parameters()).device
-            if orig_dev != device:
-                feature_utils_orig.to(device)
+            tod = feature_utils_orig.tod
+            tod_orig_dev = next(tod.parameters()).device
+            tod.to(device)
             try:
                 spec  = feature_utils_orig.decode(x1_unnorm)
                 audio = feature_utils_orig.vocode(spec)
             finally:
-                if orig_dev != device:
-                    feature_utils_orig.to(orig_dev)
+                tod.to(tod_orig_dev)
 
         audio = audio.float().cpu()
         if audio.dim() == 2:
