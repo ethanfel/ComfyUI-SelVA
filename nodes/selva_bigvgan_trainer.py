@@ -783,12 +783,17 @@ class SelvaBigvganTrainer:
         # Unload all other ComfyUI models (SelVA generator, etc.) to free VRAM
         # before starting training. BigVGAN + discriminator need the headroom.
         comfy.model_management.unload_all_models()
+
+        # Move EVERYTHING to CPU first, then bring back only what we need.
+        # ComfyUI may have loaded the full model to GPU; unload_all_models
+        # doesn't always free model dicts passed between nodes.
+        feature_utils.to("cpu")
+        if "generator" in model:
+            model["generator"].to("cpu")
         soft_empty_cache()
 
         # Only move mel_converter to GPU — it's tiny and needed for training.
-        # The rest of feature_utils (CLIP, synchformer, T5, VAE) stays on CPU;
-        # _pregenerate_lora_mels handles its own device management for the parts
-        # it needs temporarily.
+        # _pregenerate_lora_mels handles its own device management for CLIP/tod.
         mel_converter.to(device)
 
         pbar = comfy.utils.ProgressBar(steps)
@@ -827,22 +832,6 @@ class SelvaBigvganTrainer:
                             "could be generated. Check that data_dir contains .npz "
                             "files with matching audio files."
                         )
-
-                # Offload heavy SelVA components to CPU — only vocoder + mel_converter
-                # are needed for training. CLIP, synchformer, T5, generator sit on
-                # GPU doing nothing and eat tens of GiB otherwise.
-                for attr in ("clip_model", "synchformer", "text_encoder_t5"):
-                    sub = getattr(feature_utils, attr, None)
-                    if sub is not None:
-                        sub.to("cpu")
-                if "generator" in model:
-                    model["generator"].to("cpu")
-                # tod contains VAE + vocoder; VAE not needed but vocoder is a
-                # submodule we're about to train — move just the VAE part.
-                tod = feature_utils.tod
-                if hasattr(tod, "vae"):
-                    tod.vae.to("cpu")
-                soft_empty_cache()
 
                 _result[0] = _do_train(
                     vocoder, mel_converter, clips,
@@ -971,11 +960,15 @@ def _do_train(vocoder, mel_converter, clips,
             if buf is not None:
                 module._buffers[bname] = buf.clone()
 
-    # ── GAFilter injection (after inference-flag stripping) ──────────────────
+    # ── Move vocoder to training device/dtype ────────────────────────────────
+    # After cloning, vocoder may be on CPU (offloaded before training).
+    vocoder.to(device, dtype)
+
+    # ── GAFilter injection ─────────────────────────────────────────────────
     # GAFilter params are fresh tensors — no inference flag to strip.
     if use_gafilter:
         n_gaf = inject_gafilters(vocoder, gafilter_kernel_size)
-        vocoder.to(device, dtype)
+        vocoder.to(device, dtype)  # ensure new GAFilter params match
         print(f"[BigVGAN] GAFilter injected: {n_gaf} filters  kernel={gafilter_kernel_size}", flush=True)
 
     # ── Training mode: select which parameters to train ──────────────────────
