@@ -1,0 +1,30 @@
+{
+  "name": "vocoder_finetune",
+  "description": "Single run with fine-tuned BJ BigVGAN vocoder injected. Validates vocoder integration with LoRA training. Best known config: lr=3e-4, rank=128.",
+  "data_dir": "/media/unraid/davinci/Selva/BJ/features",
+  "output_root": "/media/unraid/davinci/Selva/BJ/experiment/vocoder_finetune",
+  "base": {
+    "steps": 10000,
+    "rank": 128,
+    "alpha": 0.0,
+    "lr": 3e-4,
+    "batch_size": 16,
+    "warmup_steps": 200,
+    "grad_accum": 1,
+    "save_every": 2000,
+    "seed": 42,
+    "target": "attn.qkv",
+    "timestep_mode": "uniform",
+    "logit_normal_sigma": 1.0,
+    "curriculum_switch": 0.6,
+    "lora_dropout": 0.0,
+    "lora_plus_ratio": 1.0,
+    "lr_schedule": "constant"
+  },
+  "experiments": [
+    {
+      "id": "r128_lr_3e4_bj_vocoder",
+      "description": "lr=3e-4 rank=128 with fine-tuned BJ BigVGAN vocoder. Direct comparison baseline against previous best g1_r128_lr_3e4."
+    }
+  ]
+}

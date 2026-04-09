@@ -24,6 +24,19 @@ from .utils import SELVA_CATEGORY
 AUDIO_DATASET = "AUDIO_DATASET"
 
 _AUDIO_EXTS = {".wav", ".flac", ".mp3", ".ogg", ".aac", ".m4a"}
+_SOUNDFILE_EXTS = {".wav", ".flac", ".ogg"}  # handled natively without FFmpeg
+
+
+def _load_audio(path: Path):
+    """Load audio file. Uses soundfile for WAV/FLAC/OGG to avoid torchcodec/FFmpeg issues."""
+    if path.suffix.lower() in _SOUNDFILE_EXTS:
+        import soundfile as sf
+        wav_np, sr = sf.read(str(path), dtype="float32", always_2d=True)  # [L, C]
+        wav = torch.from_numpy(wav_np).T.unsqueeze(0)                      # [1, C, L]
+    else:
+        wav, sr = torchaudio.load(str(path))   # [C, L]
+        wav = wav.unsqueeze(0).float()          # [1, C, L]
+    return wav, sr
 
 
 class SelvaDatasetLoader:
@@ -58,8 +71,7 @@ class SelvaDatasetLoader:
         dataset = []
         for f in sorted(files):
             try:
-                wav, sr = torchaudio.load(str(f))          # [C, L]
-                wav = wav.unsqueeze(0).float()              # [1, C, L]
+                wav, sr = _load_audio(f)
                 dataset.append({"waveform": wav, "sample_rate": sr, "name": f.stem})
             except Exception as e:
                 print(f"[DatasetLoader] Skipping {f.name}: {e}", flush=True)
