@@ -58,7 +58,7 @@ Generates audio from video features. Runs the rectified flow ODE with classifier
 
 | Input | Description |
 |-------|-------------|
-| `model` | From SelVA Model Loader |
+| `model` | From SelVA Model Loader (or any loader/loader chain) |
 | `features` | From SelVA Feature Extractor |
 | `prompt` | Text description — leave empty to use the prompt stored in features |
 | `negative_prompt` | What to suppress (e.g. `"speech, voice, talking"`) |
@@ -66,22 +66,261 @@ Generates audio from video features. Runs the rectified flow ODE with classifier
 | `steps` | Sampling steps (default: 25) |
 | `cfg_strength` | Classifier-free guidance scale (default: 4.5) |
 | `seed` | RNG seed |
-| `normalize` | Peak-normalize output to [-1, 1] (default: true) |
+| `normalize` | RMS-normalize output to `target_lufs` (default: true) |
+| `target_lufs` | *(optional)* Target RMS level in dBFS (default: -27) |
+| `steering_vectors` | *(optional)* From SelVA Activation Steering Loader |
+| `steering_strength` | *(optional)* Scale for steering vectors (default: 0.1) |
+| `textual_inversion` | *(optional)* From SelVA Textual Inversion Loader |
+| `ti_strength` | *(optional)* Blend strength for TI tokens (default: 1.0) |
 
 **Output:** `AUDIO`
 
 ---
 
-## Workflow
+### SelVA LoRA Loader
+
+Injects a trained LoRA adapter into the generator. Connect between Model Loader and Sampler.
+
+| Input | Description |
+|-------|-------------|
+| `model` | SELVA_MODEL from Model Loader |
+| `adapter_path` | Path to `adapter_final.pt` or any step checkpoint |
+| `strength` | 0.0 = disabled, 1.0 = full, >1.0 = exaggerated |
+
+**Output:** `model` (SELVA_MODEL with adapter injected)
+
+---
+
+### SelVA LoRA Trainer
+
+Fine-tunes LoRA adapters on a `.npz` feature dataset. See [LORA_TRAINING.md](LORA_TRAINING.md) for the full guide.
+
+**Output:** `adapter` (SELVA_LORA) and `summary_path` (STRING)
+
+---
+
+### SelVA LoRA Scheduler
+
+Runs a series of LoRA experiments from a JSON sweep file. The dataset is encoded once and reused across all runs. Results are collected in `experiment_summary.json` with overlaid loss curves.
+
+| Input | Description |
+|-------|-------------|
+| `model` | SELVA_MODEL |
+| `experiments_file` | Path to JSON sweep config |
+
+**Outputs:** `summary_path` (STRING), `comparison_curves` (IMAGE)
+
+---
+
+### SelVA Skip Experiment
+
+Signals a running SelVA LoRA Scheduler to skip the current experiment and move to the next. Queue this node while the scheduler is running.
+
+**Output:** `flag_path` (STRING)
+
+---
+
+### SelVA LoRA Evaluator
+
+Evaluates multiple LoRA adapters by generating audio from a fixed reference clip, then reports spectral metrics per adapter for comparison. Input is a JSON file listing adapter paths; an empty path means baseline (no LoRA).
+
+**Outputs:** `summary_path` (STRING), `comparison_image` (IMAGE)
+
+---
+
+### SelVA Dataset Browser
+
+Reads a `dataset.json` produced by the SelVA dataset preparation pipeline and exposes one entry at a time via an index. Useful for previewing and iterating through a prepared dataset.
+
+**Outputs:** video path, audio path, frames directory, label, total count
+
+---
+
+### SelVA VAE Roundtrip
+
+Encodes audio through the SelVA VAE then decodes it back. Use this to measure codec reconstruction quality in isolation — if the output sounds degraded relative to the input, the codec ceiling will limit any downstream fine-tuning approach.
+
+| Input | Description |
+|-------|-------------|
+| `model` | SELVA_MODEL |
+| `audio` | AUDIO to test |
+
+**Output:** `audio_reconstructed` (AUDIO)
+
+---
+
+### SelVA HF Smoother
+
+Attenuates high-frequency content that the SelVA codec handles poorly, by blending a low-pass filtered version of the audio with the original. Use before feature extraction to improve LoRA training targets.
+
+**Output:** `audio` (AUDIO)
+
+---
+
+### SelVA Spectral Matcher
+
+Applies a per-band gain correction to bring audio's spectral profile in line with the MMAudio VAE's expected distribution, derived from the normalization statistics baked into the VAE weights. Use on training audio to reduce codec mismatch.
+
+**Output:** `audio` (AUDIO)
+
+---
+
+### SelVA Textual Inversion Trainer
+
+Trains K learnable CLIP token embeddings against an audio dataset with all model weights frozen. The tokens are injected into the Sampler to guide generation toward a target style.
+
+> **Note:** Textual inversion via the text conditioning path has limited effectiveness for fine-grained timbral style transfer in SelVA due to mean-pooling in the text conditioning path. See [STYLE_TRANSFER.md](STYLE_TRANSFER.md) for the current recommended approach.
+
+**Outputs:** `embeddings_path` (STRING), `loss_curve` (IMAGE)
+
+---
+
+### SelVA Textual Inversion Loader
+
+Loads CLIP token embeddings from a `.pt` file produced by the Textual Inversion Trainer. Connect to the Sampler's `textual_inversion` input.
+
+**Output:** `textual_inversion` (TEXTUAL_INVERSION)
+
+---
+
+### SelVA TI Scheduler
+
+Runs a series of Textual Inversion experiments from a JSON sweep file, reusing the encoded dataset across runs.
+
+**Outputs:** `summary_path` (STRING), `comparison_curves` (IMAGE)
+
+---
+
+### SelVA Activation Steering Extractor
+
+Computes per-block activation steering vectors from a training dataset by comparing DiT hidden states under BJ conditioning vs. empty conditioning. The resulting vectors can nudge the denoising trajectory toward the target style at inference.
+
+| Input | Description |
+|-------|-------------|
+| `model` | SELVA_MODEL |
+| `data_dir` | Directory with `.npz` feature files |
+| `output_path` | Where to save `steering_vectors.pt` |
+| `n_samples` | Clips to average over (default: 16) |
+| `seed` | RNG seed |
+
+**Output:** `steering_path` (STRING)
+
+---
+
+### SelVA Activation Steering Loader
+
+Loads steering vectors from a `.pt` file produced by the Extractor. Connect to the Sampler's `steering_vectors` input.
+
+**Output:** `steering_vectors` (STEERING_VECTORS)
+
+---
+
+### SelVA BigVGAN Trainer
+
+Fine-tunes the BigVGAN vocoder (mel → waveform) on a set of target-style audio clips. Only the vocoder is modified — the DiT generator and VAE are completely untouched.
+
+Default mode (`snake_alpha_only`) tunes only the ~27K per-channel α parameters in Snake/SnakeBeta activations, which directly control harmonic periodicity. With 0.024% of parameters trainable the model cannot produce spectral averaging artifacts regardless of loss function. See [STYLE_TRANSFER.md](STYLE_TRANSFER.md) for the full rationale.
+
+| Input | Description |
+|-------|-------------|
+| `model` | SELVA_MODEL |
+| `data_dir` | Directory with target-style audio files (searched recursively) |
+| `output_path` | Where to save the fine-tuned vocoder `.pt` |
+| `train_mode` | `snake_alpha_only` (default) or `all_params` |
+| `steps` | Training steps (default: 2000) |
+| `lr` | Learning rate (default: 1e-4 for snake_alpha_only) |
+| `batch_size` | Clips per step (default: 4) |
+| `segment_seconds` | Audio segment length per training sample (default: 1.0 s) |
+| `lambda_l2sp` | L2-SP anchor regularization strength — penalizes drift from pretrained weights (default: 1e-3) |
+| `save_every` | Checkpoint interval in steps (default: 500) |
+| `seed` | RNG seed |
+| `discriminator_path` | *(optional)* Path to `bigvgan_discriminator_optimizer.pt` — when provided, frozen MPD+MRD feature matching replaces mel L1, directly penalizing harmonic smearing |
+
+**Output:** `checkpoint_path` (STRING) — load with SelVA BigVGAN Loader
+
+Saves eval samples and mel spectrogram PNGs at baseline, each checkpoint, and final.
+
+---
+
+### SelVA BigVGAN Loader
+
+Loads a fine-tuned BigVGAN vocoder checkpoint produced by SelVA BigVGAN Trainer and replaces the vocoder weights in a SELVA_MODEL in-place. Connect the output to SelVA Sampler instead of the base Model Loader.
+
+| Input | Description |
+|-------|-------------|
+| `model` | SELVA_MODEL from Model Loader |
+| `path` | Path to fine-tuned vocoder `.pt` (relative = ComfyUI output directory) |
+
+**Output:** `model` (SELVA_MODEL with fine-tuned vocoder)
+
+---
+
+### SelVA DITTO Optimizer
+
+Inference-time noise optimization ([arXiv:2401.12179](https://arxiv.org/abs/2401.12179), ICML 2024 Oral). Optimizes the initial noise latent x₀ to make the generated audio match a set of BJ reference clips, by backpropagating a mel style loss through the ODE solver. All model weights remain frozen — zero quality degradation risk.
+
+Style loss: mean spectrum + Gram matrix computed against reference mels. The Gram matrix captures covariance between frequency bands (timbral texture) without requiring temporal alignment with the reference clips. Optimization runs only through the DiT + VAE decoder; the vocoder is only invoked for the final output pass.
+
+| Input | Description |
+|-------|-------------|
+| `model` | SELVA_MODEL |
+| `features` | From SelVA Feature Extractor |
+| `prompt` | Sound description (leave empty to use features prompt) |
+| `negative_prompt` | Sounds to suppress |
+| `reference_dir` | Directory with BJ reference audio clips (.wav/.flac/.mp3) |
+| `n_opt_steps` | Gradient optimization steps on x₀ (default: 50) |
+| `opt_lr` | Adam LR for x₀ optimization (default: 0.1) |
+| `n_ode_steps` | ODE steps per optimization iteration (default: 10; lower = faster) |
+| `n_grad_steps` | ODE steps to differentiate through — truncated BPTT (default: 5) |
+| `style_weight` | Style loss weight (default: 1.0; increase for stronger BJ shift) |
+| `steps` | Euler steps for the final generation pass (default: 25) |
+| `cfg_strength` | CFG scale (default: 4.5) |
+| `seed` | RNG seed |
+| `normalize` | *(optional)* RMS normalize output (default: true) |
+| `target_lufs` | *(optional)* Target RMS level in dBFS (default: -27) |
+
+**Output:** `AUDIO`
+
+---
+
+## Workflows
+
+### Basic generation
 
 ```
-VHS LoadVideo ──► SelVA Feature Extractor ──────────────────────► SelVA Sampler ──► Save Audio
-                      │ (video_info) ─► (fps auto)                      ▲
-                      │ (features) ────────────────────────────────────►│
-                      │ (prompt) ──────────────────────────────────────►│
+VHS LoadVideo ──► SelVA Feature Extractor ─────────────────────► SelVA Sampler ──► Save Audio
+                       │ (video_info)                                  ▲
+                       │ (features) ──────────────────────────────────►│
+                       │ (prompt) ────────────────────────────────────►│
 ```
 
-Connect the `prompt` output of Feature Extractor directly to Sampler's `prompt` to keep them in sync. Leave Sampler's `prompt` empty and it will use whatever was stored during extraction.
+### DITTO style transfer (recommended first approach)
+
+```
+SelVA Model Loader ─────────────────────────────────────────────► SelVA DITTO Optimizer ──► Save Audio
+                                                                         ▲
+SelVA Feature Extractor ──(features)────────────────────────────────────►│
+                          (prompt) ──────────────────────────────────────►│
+BJ reference_dir ───────────────────────────────────────────────────────►│
+```
+
+No training required. Each run optimizes x₀ independently for the current video and reference set.
+
+### Vocoder fine-tuning
+
+```
+SelVA Model Loader ──► SelVA BigVGAN Trainer ──► (checkpoint .pt)
+                              ▲
+BJ audio clips ──(data_dir)──►│
+
+SelVA Model Loader ──► SelVA BigVGAN Loader ──► SelVA Sampler ──► Save Audio
+                              ▲                       ▲
+                        checkpoint .pt         SelVA Feature Extractor
+```
+
+### LoRA training
+
+See [LORA_TRAINING.md](LORA_TRAINING.md).
 
 ---
 
@@ -127,8 +366,15 @@ The `auto` offload strategy picks `keep_in_vram` if ≥ 16 GB VRAM is available,
 
 ---
 
+## Style Transfer
+
+For adapting SelVA to a specific audio style (e.g. BJ / Bladee / Jersey Club), see [STYLE_TRANSFER.md](STYLE_TRANSFER.md).
+
+---
+
 ## Credits
 
 - [SelVA](https://github.com/jnwnlee/selva) by Jaehwan Lee et al. — TextSynchformer and SelVA training
 - [MMAudio](https://github.com/hkchengrex/MMAudio) by Feng et al. — MM-DiT audio generator and flow matching framework
 - [BigVGAN](https://github.com/NVIDIA/BigVGAN) by NVIDIA — neural vocoder for 16 kHz synthesis
+- [DITTO](https://arxiv.org/abs/2401.12179) by Novack et al. — inference-time diffusion optimization

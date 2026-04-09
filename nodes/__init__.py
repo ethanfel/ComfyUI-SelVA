@@ -21,6 +21,7 @@ _NODES = {
     "SelvaActivationSteeringLoader":         (".selva_activation_steering_loader",         "SelvaActivationSteeringLoader",         "SelVA Activation Steering Loader"),
     "SelvaBigvganTrainer":                   (".selva_bigvgan_trainer",                    "SelvaBigvganTrainer",                   "SelVA BigVGAN Trainer"),
     "SelvaBigvganLoader":                    (".selva_bigvgan_loader",                     "SelvaBigvganLoader",                    "SelVA BigVGAN Loader"),
+    "SelvaDittoOptimizer":                   (".selva_ditto_optimizer",                    "SelvaDittoOptimizer",                   "SelVA DITTO Optimizer"),
 }
 
 for key, (module_path, class_name, display_name) in _NODES.items():
