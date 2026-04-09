@@ -459,4 +459,4 @@ def _do_optimize(net_generator, feature_utils, mel_converter,
             audio = audio / peak
 
     print(f"[DITTO] audio: shape={tuple(audio.shape)} sr={sample_rate}", flush=True)
-    return ({"waveform": audio.cpu(), "sample_rate": sample_rate},)
+    return {"waveform": audio.cpu(), "sample_rate": sample_rate}
