@@ -304,3 +304,46 @@ class SelvaDatasetInspector:
         report = "\n".join(lines)
         print(f"[DatasetInspector]\n{report}", flush=True)
         return (clean, report)
+
+
+class SelvaDatasetItemExtractor:
+    """Extract a single AUDIO item from an AUDIO_DATASET by index.
+
+    Bridges the dataset pipeline to any node that accepts a standard AUDIO
+    input — save audio, HF Smoother, Spectral Matcher, etc.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "dataset": (AUDIO_DATASET,),
+                "index":   ("INT", {
+                    "default": 0, "min": 0, "max": 9999,
+                    "tooltip": "0-based index. Wraps around if index >= dataset length.",
+                }),
+            }
+        }
+
+    RETURN_TYPES  = ("AUDIO", "STRING", "INT")
+    RETURN_NAMES  = ("audio",  "name",   "total")
+    FUNCTION      = "extract"
+    CATEGORY      = SELVA_CATEGORY
+    DESCRIPTION   = (
+        "Extract one clip from an AUDIO_DATASET by index. "
+        "Returns standard AUDIO (compatible with all audio nodes), "
+        "the clip name, and the total dataset length."
+    )
+
+    def extract(self, dataset, index: int):
+        if not dataset:
+            raise RuntimeError("[DatasetItemExtractor] Dataset is empty.")
+        idx  = index % len(dataset)
+        item = dataset[idx]
+        audio = {"waveform": item["waveform"], "sample_rate": item["sample_rate"]}
+        print(
+            f"[DatasetItemExtractor] [{idx}/{len(dataset)-1}] {item['name']}  "
+            f"sr={item['sample_rate']}  shape={tuple(item['waveform'].shape)}",
+            flush=True,
+        )
+        return (audio, item["name"], len(dataset))
