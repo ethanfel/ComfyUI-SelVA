@@ -808,9 +808,11 @@ def _do_train(vocoder, mel_converter, clips,
     clips = [c.clone() for c in clips]
 
     # 2. mel_converter buffers (mel_basis, hann_window) — same origin.
+    #    Also cast to float32: mel_converter receives float32 audio (cuFFT
+    #    requirement) so all internal buffers must match.
     for name, buf in list(mel_converter._buffers.items()):
         if buf is not None:
-            mel_converter._buffers[name] = buf.clone()
+            mel_converter._buffers[name] = buf.clone().float()
 
     # 3. Vocoder parameters are handled below with clone().detach().
     # ─────────────────────────────────────────────────────────────────────────
