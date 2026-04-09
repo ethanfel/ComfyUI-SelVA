@@ -772,19 +772,32 @@ class SelvaBigvganTrainer:
 
         # Unload all other ComfyUI models (SelVA generator, etc.) to free VRAM
         # before starting training. BigVGAN + discriminator need the headroom.
+        def _vram_log(label):
+            if device.type == "cuda":
+                alloc = torch.cuda.memory_allocated(device) / (1024**3)
+                resrv = torch.cuda.memory_reserved(device) / (1024**3)
+                print(f"[BigVGAN VRAM] {label}: {alloc:.2f} GiB allocated, "
+                      f"{resrv:.2f} GiB reserved", flush=True)
+
+        _vram_log("before unload")
         comfy.model_management.unload_all_models()
+        _vram_log("after unload_all_models")
 
         # Move EVERYTHING to CPU first, then bring back only what we need.
         # ComfyUI may have loaded the full model to GPU; unload_all_models
         # doesn't always free model dicts passed between nodes.
         feature_utils.to("cpu")
+        _vram_log("after feature_utils.to(cpu)")
         if "generator" in model:
             model["generator"].to("cpu")
+            _vram_log("after generator.to(cpu)")
         soft_empty_cache()
+        _vram_log("after soft_empty_cache")
 
         # Only move mel_converter to GPU — it's tiny and needed for training.
         # _pregenerate_lora_mels handles its own device management for CLIP/tod.
         mel_converter.to(device)
+        _vram_log("after mel_converter.to(device)")
 
         # Pre-compute text CLIP embeddings in the main thread.
         # CLIP weights are inference tensors from ComfyUI loading — they only
@@ -1069,6 +1082,13 @@ def _do_train(vocoder, mel_converter, clips,
             print(f"[BigVGAN] WARNING: Could not load discriminator ({e}), "
                   f"falling back to mel+STFT losses", flush=True)
             mpd = mrd = None
+
+    # VRAM snapshot before training loop
+    if device.type == "cuda":
+        alloc = torch.cuda.memory_allocated(device) / (1024**3)
+        resrv = torch.cuda.memory_reserved(device) / (1024**3)
+        print(f"[BigVGAN VRAM] before training: {alloc:.2f} GiB allocated, "
+              f"{resrv:.2f} GiB reserved", flush=True)
 
     optimizer = torch.optim.AdamW(trainable_params, lr=lr, betas=(0.8, 0.99))
     vocoder.train()
