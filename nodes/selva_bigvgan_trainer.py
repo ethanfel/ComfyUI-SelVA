@@ -305,9 +305,14 @@ def _do_train(vocoder, mel_converter, clips,
     torch.manual_seed(seed)
     random.seed(seed)
 
-    # Reference segment for eval samples — always clip 0, start 0
+    # Reference segment for eval samples — always clip 0, full length
     ref_wav = clips[0].to(device, dtype)                      # full first clip [T]
     ref_mel = mel_converter(ref_wav.unsqueeze(0))             # [1, n_mels, T_mel]
+
+    # Ground-truth spectrogram — saved once alongside baseline for comparison
+    gt_spec_path = out_path.parent / f"{out_path.stem}_gt_spec.png"
+    _save_spectrogram(gt_spec_path, ref_mel)
+    print(f"[BigVGAN] GT spectrogram: {gt_spec_path}", flush=True)
 
     def _save_sample(label):
         try:
@@ -321,11 +326,10 @@ def _do_train(vocoder, mel_converter, clips,
             wav_path  = out_path.parent / f"{out_path.stem}_{label}.wav"
             spec_path = out_path.parent / f"{out_path.stem}_{label}_spec.png"
             _save_wav(wav_path, wav.squeeze(0), sample_rate)
-            # Compute mel of the vocoded output for visual comparison
             with torch.no_grad():
                 pred_mel = mel_converter(wav.squeeze(1).to(mel_converter.mel_basis.device))
             _save_spectrogram(spec_path, pred_mel)
-            print(f"[BigVGAN] Sample saved: {wav_path}  spec: {spec_path}", flush=True)
+            print(f"[BigVGAN] Sample: {wav_path}  spec: {spec_path}", flush=True)
         except Exception as e:
             print(f"[BigVGAN] Sample save failed ({label}): {e}", flush=True)
 
