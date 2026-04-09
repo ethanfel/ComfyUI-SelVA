@@ -192,7 +192,17 @@ class _ActivationWithGAFilter(nn.Module):
         self.gafilter   = gafilter
 
     def forward(self, x):
-        return self.gafilter(self.activation(x))
+        T = x.shape[-1]
+        out = self.gafilter(self.activation(x))
+        # Guarantee exact length match — Activation1d's anti-alias resampling
+        # (Kaiser sinc filter with asymmetric pad_left/pad_right) can produce
+        # ±1-2 sample rounding in edge cases that break the resblock residual add.
+        if out.shape[-1] != T:
+            if out.shape[-1] > T:
+                out = out[..., :T]
+            else:
+                out = torch.nn.functional.pad(out, (0, T - out.shape[-1]))
+        return out
 
 
 def inject_gafilters(vocoder: nn.Module, kernel_size: int = 9) -> int:
