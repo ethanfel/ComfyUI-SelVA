@@ -253,11 +253,10 @@ class SelvaDittoOptimizer:
                         wav = torchaudio.functional.resample(wav, sr, sample_rate)
                     wav = wav.squeeze(0).to(device, torch.float32)
                     mel = mel_converter(wav.unsqueeze(0)).to(dtype)  # [1, n_mels, T_mel]
-                    # encode → sample → normalize (matches x at ODE endpoint)
+                    # encode → sample → VAE latent space (matches unnormalize(x) in loss)
                     z = feature_utils.tod.encode(mel)               # DiagonalGaussianDistribution
                     z_sample = z.sample().transpose(1, 2)           # [1, T_lat, C_lat]
-                    z_norm   = net_generator.normalize(z_sample.to(dtype))
-                    ref_latents.append(z_norm.squeeze(0).clone())   # [T_lat, C_lat]
+                    ref_latents.append(z_sample.to(dtype).squeeze(0).clone())  # [T_lat, C_lat]
                 except Exception as e:
                     print(f"  [DITTO] Skip {rf.name}: {e}", flush=True)
 
