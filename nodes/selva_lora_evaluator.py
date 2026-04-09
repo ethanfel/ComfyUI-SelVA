@@ -312,14 +312,18 @@ class SelvaLoraEvaluator:
                             state_dict = ckpt
                             meta       = {}
 
-                        rank    = int(meta.get("rank",   16))
-                        alpha   = float(meta.get("alpha", float(rank)))
-                        target  = list(meta.get("target", ["attn.qkv"]))
-                        dropout = float(meta.get("lora_dropout", 0.0))
+                        rank       = int(meta.get("rank",   16))
+                        alpha      = float(meta.get("alpha", float(rank)))
+                        target     = list(meta.get("target", ["attn.qkv"]))
+                        dropout    = float(meta.get("lora_dropout", 0.0))
+                        use_rslora = meta.get("use_rslora", False)
                         record["meta"] = {"rank": rank, "alpha": alpha, "target": target}
 
+                        # Always use standard init for loading — PiSSA checkpoints
+                        # include linear.weight (residual) in state_dict
                         n = apply_lora(generator, rank=rank, alpha=alpha,
-                                       target_suffixes=tuple(target), dropout=dropout)
+                                       target_suffixes=tuple(target), dropout=dropout,
+                                       init_mode="standard", use_rslora=use_rslora)
                         if n == 0:
                             raise RuntimeError(
                                 f"apply_lora matched 0 layers (target={target})"

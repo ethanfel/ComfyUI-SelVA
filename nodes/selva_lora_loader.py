@@ -58,19 +58,26 @@ class SelvaLoraLoader:
             state_dict = checkpoint
             meta       = {}
 
-        rank   = int(meta.get("rank",   16))
-        alpha  = float(meta.get("alpha", float(rank)))
-        target = list(meta.get("target", ["attn.qkv"]))
+        rank      = int(meta.get("rank",   16))
+        alpha     = float(meta.get("alpha", float(rank)))
+        target    = list(meta.get("target", ["attn.qkv"]))
+        init_mode = meta.get("init_mode", "standard")
+        use_rslora = meta.get("use_rslora", False)
 
         print(f"[SelVA LoRA] Loading adapter: {p.name}", flush=True)
-        print(f"[SelVA LoRA]   rank={rank}  alpha={alpha}  target={target}  strength={strength}",
+        print(f"[SelVA LoRA]   rank={rank}  alpha={alpha}  target={target}  "
+              f"init={init_mode}  rslora={use_rslora}  strength={strength}",
               flush=True)
 
         # Shallow-copy the model bundle so the original generator is not mutated
         patched = {**model}
         generator = copy.deepcopy(model["generator"])
 
-        n = apply_lora(generator, rank=rank, alpha=alpha, target_suffixes=tuple(target))
+        # For PiSSA, use standard init (the base weights will be overwritten
+        # by load_state_dict since the checkpoint includes linear.weight)
+        n = apply_lora(generator, rank=rank, alpha=alpha,
+                       target_suffixes=tuple(target),
+                       init_mode="standard", use_rslora=use_rslora)
         if n == 0:
             raise RuntimeError(
                 f"[SelVA LoRA] No layers matched target={target}. "
