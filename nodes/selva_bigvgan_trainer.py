@@ -895,7 +895,7 @@ def _do_train(vocoder, mel_converter, clips,
     # GAFilter params are fresh tensors — no inference flag to strip.
     if use_gafilter:
         n_gaf = inject_gafilters(vocoder, gafilter_kernel_size)
-        vocoder.to(device)
+        vocoder.to(device, dtype)
         print(f"[BigVGAN] GAFilter injected: {n_gaf} filters  kernel={gafilter_kernel_size}", flush=True)
 
     # ── Training mode: select which parameters to train ──────────────────────
