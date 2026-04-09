@@ -456,6 +456,14 @@ def _do_optimize(net_generator, feature_utils, mel_converter,
         torch.nn.utils.clip_grad_norm_([x0], 1.0)
         optimizer.step()
 
+        # Clamp x0 std to stay near unit Gaussian — flow matching ODE expects
+        # x0 ~ N(0,1). Optimization can push std >> 1, which maps to an
+        # out-of-distribution initial condition and produces white noise.
+        with torch.no_grad():
+            std = x0.std()
+            if std > 1.5:
+                x0.data.div_(std)
+
         pbar.update(1)
 
         if (opt_step + 1) % max(1, n_opt_steps // 10) == 0:
