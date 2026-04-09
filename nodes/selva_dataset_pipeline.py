@@ -7,6 +7,8 @@ Typical chain:
       ↓ AUDIO_DATASET
   SelvaDatasetLUFSNormalizer  (optional)
       ↓ AUDIO_DATASET
+  SelvaDatasetCompressor      (optional)
+      ↓ AUDIO_DATASET
   SelvaDatasetInspector       (optional)
       ↓ AUDIO_DATASET  +  STRING report
   SelvaDatasetItemExtractor   → AUDIO (bridges to save/preview nodes)
@@ -196,6 +198,83 @@ class SelvaDatasetLUFSNormalizer:
         print(
             f"[LUFSNormalizer] {len(dataset) - skipped}/{len(dataset)} clips normalized  "
             f"target={target_lufs} LUFS  TP={true_peak_dbtp} dBTP  skipped={skipped}",
+            flush=True,
+        )
+        return (out,)
+
+
+class SelvaDatasetCompressor:
+    """Apply mild parallel compression to reduce within-clip loudness variance.
+
+    Uses pedalboard.Compressor (2:1–3:1 ratio). Parallel (New York) style:
+    blends compressed signal with dry so transients are preserved while
+    the dynamic range is gently tightened. Apply after LUFS normalization.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "dataset":        (AUDIO_DATASET,),
+                "threshold_db":   ("FLOAT", {
+                    "default": -18.0, "min": -40.0, "max": -6.0, "step": 1.0,
+                    "tooltip": "Compression kicks in above this level. -18 dB is a safe starting point after LUFS normalization.",
+                }),
+                "ratio":          ("FLOAT", {
+                    "default": 2.5, "min": 1.5, "max": 4.0, "step": 0.5,
+                    "tooltip": "Compression ratio. 2:1–3:1 is mild; stay below 4:1 to avoid pumping.",
+                }),
+                "attack_ms":      ("FLOAT", {
+                    "default": 10.0, "min": 1.0, "max": 100.0, "step": 1.0,
+                    "tooltip": "Attack time in ms. Slower attack preserves transients.",
+                }),
+                "release_ms":     ("FLOAT", {
+                    "default": 100.0, "min": 20.0, "max": 500.0, "step": 10.0,
+                    "tooltip": "Release time in ms.",
+                }),
+                "mix":            ("FLOAT", {
+                    "default": 0.4, "min": 0.0, "max": 1.0, "step": 0.05,
+                    "tooltip": "Parallel blend: 0.0 = dry only, 1.0 = fully compressed. 0.3–0.5 is typical.",
+                }),
+            }
+        }
+
+    RETURN_TYPES  = (AUDIO_DATASET,)
+    RETURN_NAMES  = ("dataset",)
+    FUNCTION      = "compress"
+    CATEGORY      = SELVA_CATEGORY
+    DESCRIPTION   = (
+        "Mild parallel compression to reduce within-clip dynamic range. "
+        "Blends compressed signal with dry at the given mix ratio. "
+        "Apply after LUFS normalization."
+    )
+
+    def compress(self, dataset, threshold_db: float, ratio: float,
+                 attack_ms: float, release_ms: float, mix: float):
+        from pedalboard import Compressor, Pedalboard
+
+        board = Pedalboard([Compressor(
+            threshold_db=threshold_db,
+            ratio=ratio,
+            attack_ms=attack_ms,
+            release_ms=release_ms,
+        )])
+
+        out = []
+        for item in dataset:
+            wav = item["waveform"][0]   # [C, L]
+            sr  = item["sample_rate"]
+
+            # pedalboard expects [C, L] float32 numpy
+            wav_np = wav.float().numpy()                        # [C, L]
+            compressed = board(wav_np, sr)                      # [C, L]
+            mixed = (1.0 - mix) * wav_np + mix * compressed
+            wav_out = torch.from_numpy(mixed).unsqueeze(0)      # [1, C, L]
+            out.append({"waveform": wav_out, "sample_rate": sr, "name": item["name"]})
+
+        print(
+            f"[DatasetCompressor] {len(out)} clips compressed  "
+            f"thr={threshold_db}dB  ratio={ratio}:1  mix={mix:.0%}",
             flush=True,
         )
         return (out,)

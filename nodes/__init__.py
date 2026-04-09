@@ -25,6 +25,7 @@ _NODES = {
     "SelvaDatasetLoader":          (".selva_dataset_pipeline", "SelvaDatasetLoader",          "SelVA Dataset Loader"),
     "SelvaDatasetResampler":       (".selva_dataset_pipeline", "SelvaDatasetResampler",       "SelVA Dataset Resampler"),
     "SelvaDatasetLUFSNormalizer":  (".selva_dataset_pipeline", "SelvaDatasetLUFSNormalizer",  "SelVA Dataset LUFS Normalizer"),
+    "SelvaDatasetCompressor":      (".selva_dataset_pipeline", "SelvaDatasetCompressor",      "SelVA Dataset Compressor"),
     "SelvaDatasetInspector":       (".selva_dataset_pipeline", "SelvaDatasetInspector",       "SelVA Dataset Inspector"),
     "SelvaDatasetItemExtractor":   (".selva_dataset_pipeline", "SelvaDatasetItemExtractor",   "SelVA Dataset Item Extractor"),
     "SelvaDatasetSaver":           (".selva_dataset_pipeline", "SelvaDatasetSaver",           "SelVA Dataset Saver"),
