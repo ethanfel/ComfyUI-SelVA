@@ -636,7 +636,14 @@ def _do_train(vocoder, mel_converter, clips,
             with torch.no_grad():
                 target_mel = mel_converter(target_flat)           # [B, n_mels, T_mel]
 
-            pred_wav = vocoder(target_mel)                        # [B, 1, T_wav]
+            # Gradient checkpointing: recompute BigVGAN activations during
+            # backward instead of storing them. The 512x upsampling stack
+            # produces enormous intermediate tensors — checkpointing trades
+            # ~2x compute for a large reduction in activation memory, allowing
+            # batch_size > 1 without OOM.
+            pred_wav = torch.utils.checkpoint.checkpoint(
+                vocoder, target_mel, use_reentrant=False
+            )                                                     # [B, 1, T_wav]
 
             T = min(pred_wav.shape[-1], target_wav.shape[-1])
             pred_t   = pred_wav[...,  :T]
