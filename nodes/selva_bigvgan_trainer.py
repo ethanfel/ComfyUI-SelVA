@@ -307,7 +307,7 @@ class SelvaBigvganTrainer:
                 }),
                 "batch_size": ("INT", {"default": 4, "min": 1, "max": 32}),
                 "segment_seconds": ("FLOAT", {
-                    "default": 1.0, "min": 0.25, "max": 4.0, "step": 0.25,
+                    "default": 2.0, "min": 0.25, "max": 30.0, "step": 0.25,
                     "tooltip": "Audio segment length per training sample in seconds.",
                 }),
                 "lambda_l2sp": ("FLOAT", {
