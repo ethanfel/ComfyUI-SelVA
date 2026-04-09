@@ -138,9 +138,7 @@ class SelvaFlashSR:
 
         # AudioSR works on files — write to temp, process, read back
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            tmp_in  = Path(f.name)
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            tmp_out = Path(f.name)
+            tmp_in = Path(f.name)
 
         try:
             wav_np = wav.float().numpy()   # [C, T]
@@ -150,8 +148,7 @@ class SelvaFlashSR:
                 wav_np = wav_np.T          # [T, C]
             sf.write(str(tmp_in), wav_np, sr)
 
-            device = str(comfy.model_management.get_torch_device())
-            model  = audiosr.build_model(model_name="basic", device=device)
+            model  = audiosr.build_model(model_name="basic", device="auto")
             result = audiosr.super_resolution(
                 model,
                 str(tmp_in),
@@ -170,7 +167,6 @@ class SelvaFlashSR:
 
         finally:
             tmp_in.unlink(missing_ok=True)
-            tmp_out.unlink(missing_ok=True)
 
         print(f"[FlashSR] Done  guidance={guidance_scale}  steps={ddim_steps}", flush=True)
         return ({"waveform": wav_out, "sample_rate": out_sr},)
