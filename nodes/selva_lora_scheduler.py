@@ -79,6 +79,8 @@ _PARAM_DEFAULTS = {
     "lora_dropout":        0.0,
     "lora_plus_ratio":     1.0,
     "lr_schedule":         "constant",
+    "init_mode":           "pissa",
+    "use_rslora":          True,
 }
 
 # Palette for comparison chart: one color per experiment (cycles if > 8)
@@ -388,7 +390,9 @@ class SelvaLoraScheduler:
             dropout     = float(cfg.get("lora_dropout",       0.0))
             plus_ratio  = float(cfg.get("lora_plus_ratio",    1.0))
             lr_schedule = str(cfg.get("lr_schedule",          "constant"))
-            alpha_val   = alpha if alpha > 0.0 else float(rank)
+            init_mode   = str(cfg.get("init_mode",            "pissa"))
+            use_rslora  = bool(cfg.get("use_rslora",          True))
+            alpha_val   = alpha if alpha > 0.0 else float(2 * rank)
             target_suffixes = tuple(target.strip().split())
 
             output_dir = output_root / exp_id
@@ -410,6 +414,7 @@ class SelvaLoraScheduler:
                     "curriculum_switch": curr_switch,
                     "lora_dropout": dropout, "lora_plus_ratio": plus_ratio,
                     "lr_schedule": lr_schedule,
+                    "init_mode": init_mode, "use_rslora": use_rslora,
                 },
                 "results":     {"status": "running"},
                 "adapter_path": None,
@@ -428,7 +433,7 @@ class SelvaLoraScheduler:
                         alpha_val, target_suffixes, batch_size, warmup,
                         grad_accum, save_every, resume_path, seed,
                         ts_mode, ln_sigma, curr_switch, dropout, plus_ratio,
-                        lr_schedule,
+                        lr_schedule, init_mode, use_rslora,
                     )
 
                 duration          = time.monotonic() - t_start

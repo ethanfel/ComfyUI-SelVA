@@ -1,0 +1,62 @@
+{
+  "name": "pissa_sweep",
+  "description": "PiSSA vs standard init ablation at rank 128. Best prior config (lr=3e-4, bs=16, 10k steps) as baseline. PiSSA starts on-manifold via SVD init — should eliminate intruder dimensions. rsLoRA stabilises scaling at high rank.",
+  "data_dir": "/media/unraid/davinci/Selva/BJ/features",
+  "output_root": "/media/unraid/davinci/Selva/BJ/experiment/pissa_sweep",
+  "base": {
+    "steps": 10000,
+    "rank": 128,
+    "alpha": 0.0,
+    "lr": 3e-4,
+    "batch_size": 16,
+    "warmup_steps": 200,
+    "grad_accum": 1,
+    "save_every": 2000,
+    "seed": 42,
+    "target": "attn.qkv",
+    "timestep_mode": "uniform",
+    "lora_dropout": 0.0,
+    "lora_plus_ratio": 1.0,
+    "lr_schedule": "constant",
+    "init_mode": "pissa",
+    "use_rslora": true
+  },
+  "experiments": [
+    {
+      "id": "standard_baseline",
+      "description": "Standard Kaiming init + classic alpha/rank scaling. Replicates best prior config for A/B comparison.",
+      "init_mode": "standard",
+      "use_rslora": false
+    },
+    {
+      "id": "pissa_rslora",
+      "description": "PiSSA init + rsLoRA scaling. Full Tier-S config. Should start on-manifold and avoid intruder dimensions."
+    },
+    {
+      "id": "pissa_classic_scale",
+      "description": "PiSSA init + classic alpha/rank scaling. Isolates PiSSA contribution from rsLoRA.",
+      "use_rslora": false
+    },
+    {
+      "id": "standard_rslora",
+      "description": "Standard init + rsLoRA only. Isolates rsLoRA contribution from PiSSA.",
+      "init_mode": "standard"
+    },
+    {
+      "id": "pissa_rslora_lr1e-4",
+      "description": "PiSSA+rsLoRA at lower lr=1e-4. PiSSA starts closer to optimum — may need less aggressive lr.",
+      "lr": 1e-4
+    },
+    {
+      "id": "pissa_rslora_lr5e-4",
+      "description": "PiSSA+rsLoRA at higher lr=5e-4. Test if on-manifold start tolerates faster learning.",
+      "lr": 5e-4
+    },
+    {
+      "id": "pissa_rslora_dropout",
+      "description": "PiSSA+rsLoRA with dropout 0.05. Note: PiSSA forces dropout=0 (principal components should not be dropped) — this tests standard init with rsLoRA + dropout.",
+      "init_mode": "standard",
+      "lora_dropout": 0.05
+    }
+  ]
+}
