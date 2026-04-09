@@ -305,6 +305,17 @@ def _do_train(vocoder, mel_converter, clips,
             with torch.no_grad():
                 target_mel = mel_converter(target_flat)           # [B, n_mels, T_mel]
 
+            if step == 0:
+                print(f"[BigVGAN DEBUG] inference_mode={torch.is_inference_mode_enabled()}", flush=True)
+                print(f"[BigVGAN DEBUG] clips[0].is_inference()={clips[0].is_inference()}", flush=True)
+                print(f"[BigVGAN DEBUG] mel_basis.is_inference()={mel_converter.mel_basis.is_inference()}", flush=True)
+                print(f"[BigVGAN DEBUG] target_flat.is_inference()={target_flat.is_inference()}", flush=True)
+                print(f"[BigVGAN DEBUG] target_mel.is_inference()={target_mel.is_inference()}", flush=True)
+                cp = vocoder.conv_pre
+                print(f"[BigVGAN DEBUG] conv_pre.weight.is_inference()={cp.weight.is_inference()}", flush=True)
+                if cp.bias is not None:
+                    print(f"[BigVGAN DEBUG] conv_pre.bias.is_inference()={cp.bias.is_inference()}", flush=True)
+
             pred_wav = vocoder(target_mel)                        # [B, 1, T_wav]
 
             T = min(pred_wav.shape[-1], target_wav.shape[-1])
