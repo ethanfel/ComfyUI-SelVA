@@ -231,8 +231,27 @@ def _do_train(vocoder, mel_converter, clips,
               segment_samples, sample_rate,
               steps, lr, batch_size, save_every, seed,
               out_path, pbar):
-    """Execute training. Called in a fresh thread — no inference_mode active."""
+    """Execute training. Called in a fresh thread — no inference_mode active.
+
+    Even though inference_mode is off here, tensors created in the calling
+    thread's inference_mode carry the inference flag on the object itself.
+    Operations on inference tensors produce inference tensors regardless of
+    the current context.  The ONLY way to strip the flag is to call .clone()
+    from outside inference_mode — which is exactly where we are now.
+    """
     import torch.nn as nn_mod
+
+    # ── Strip inference flag from all inputs that came from the main thread ──
+    # 1. Audio clips (loaded in ComfyUI's inference_mode).
+    clips = [c.clone() for c in clips]
+
+    # 2. mel_converter buffers (mel_basis, hann_window) — same origin.
+    for name, buf in list(mel_converter._buffers.items()):
+        if buf is not None:
+            mel_converter._buffers[name] = buf.clone()
+
+    # 3. Vocoder parameters are handled below with clone().detach().
+    # ─────────────────────────────────────────────────────────────────────────
 
     torch.manual_seed(seed)
     random.seed(seed)
