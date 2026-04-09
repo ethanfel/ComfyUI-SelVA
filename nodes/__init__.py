@@ -22,6 +22,11 @@ _NODES = {
     "SelvaBigvganTrainer":                   (".selva_bigvgan_trainer",                    "SelvaBigvganTrainer",                   "SelVA BigVGAN Trainer"),
     "SelvaBigvganLoader":                    (".selva_bigvgan_loader",                     "SelvaBigvganLoader",                    "SelVA BigVGAN Loader"),
     "SelvaDittoOptimizer":                   (".selva_ditto_optimizer",                    "SelvaDittoOptimizer",                   "SelVA DITTO Optimizer"),
+    "SelvaDatasetLoader":          (".selva_dataset_pipeline", "SelvaDatasetLoader",          "SelVA Dataset Loader"),
+    "SelvaDatasetResampler":       (".selva_dataset_pipeline", "SelvaDatasetResampler",       "SelVA Dataset Resampler"),
+    "SelvaDatasetLUFSNormalizer":  (".selva_dataset_pipeline", "SelvaDatasetLUFSNormalizer",  "SelVA Dataset LUFS Normalizer"),
+    "SelvaDatasetInspector":       (".selva_dataset_pipeline", "SelvaDatasetInspector",       "SelVA Dataset Inspector"),
+    "SelvaDatasetItemExtractor":   (".selva_dataset_pipeline", "SelvaDatasetItemExtractor",   "SelVA Dataset Item Extractor"),
 }
 
 for key, (module_path, class_name, display_name) in _NODES.items():
