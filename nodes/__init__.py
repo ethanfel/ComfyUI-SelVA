@@ -32,6 +32,9 @@ _NODES = {
     "SelvaDatasetSaver":           (".selva_dataset_pipeline", "SelvaDatasetSaver",           "SelVA Dataset Saver"),
     "SelvaHarmonicExciter":        (".selva_audio_postprocess", "SelvaHarmonicExciter",        "SelVA Harmonic Exciter"),
     "SelvaOutputNormalizer":       (".selva_audio_postprocess", "SelvaOutputNormalizer",       "SelVA Output Normalizer"),
+    "SelvaDatasetSpectralMatcher": (".selva_dataset_pipeline",  "SelvaDatasetSpectralMatcher", "SelVA Dataset Spectral Matcher"),
+    "SelvaDatasetHfSmoother":      (".selva_dataset_pipeline",  "SelvaDatasetHfSmoother",      "SelVA Dataset HF Smoother"),
+    "SelvaDatasetAugmenter":       (".selva_dataset_pipeline",  "SelvaDatasetAugmenter",       "SelVA Dataset Augmenter"),
 }
 
 for key, (module_path, class_name, display_name) in _NODES.items():
