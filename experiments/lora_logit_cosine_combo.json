@@ -1,0 +1,33 @@
+{
+  "name": "lora_logit_cosine_combo",
+  "description": "Combine the two best findings from optimized dataset sweep: logit-normal timestep sampling + cosine LR schedule. Both individually outperformed baseline by large margins (56% and 68% lower loss). Tests if gains stack.",
+  "data_dir": "/media/unraid/davinci/Selva/BJ/features_v2_improved/",
+  "output_root": "/media/unraid/davinci/Selva/BJ/experiment/lora_logit_cosine_combo",
+  "base": {
+    "rank": 128,
+    "lr": 3e-4,
+    "steps": 5000,
+    "batch_size": 16,
+    "warmup_steps": 100,
+    "save_every": 1000,
+    "seed": 42,
+    "init_mode": "pissa",
+    "use_rslora": true,
+    "target": "attn.qkv",
+    "timestep_mode": "uniform",
+    "lr_schedule": "constant"
+  },
+  "experiments": [
+    {
+      "id": "logit_normal_cosine",
+      "description": "Logit-normal timesteps + cosine LR decay. Combining the two best individual improvements.",
+      "timestep_mode": "logit_normal",
+      "lr_schedule": "cosine"
+    },
+    {
+      "id": "logit_normal_control",
+      "description": "Control: logit-normal only (constant LR). Reproduces previous winner for direct comparison.",
+      "timestep_mode": "logit_normal"
+    }
+  ]
+}

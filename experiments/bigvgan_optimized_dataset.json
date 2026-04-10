@@ -1,0 +1,35 @@
+{
+  "name": "bigvgan_optimized_dataset",
+  "description": "BigVGAN fine-tuning on optimized dataset (134 clips, 44.1kHz, LUFS-normalized). Standard mode (no LoRA) — trains decoder to faithfully reconstruct target domain audio from mel spectrograms. Uses optimal config from prior sweeps.",
+  "data_dir": "/media/unraid/davinci/Selva/BJ/features_v2_improved/",
+  "output_root": "/media/unraid/davinci/Selva/BJ/experiment/bigvgan_optimized_dataset",
+  "base": {
+    "train_mode": "snake_alpha_only",
+    "steps": 5000,
+    "lr": 1e-4,
+    "batch_size": 8,
+    "segment_seconds": 0.5,
+    "lambda_l2sp": 1e-3,
+    "use_gafilter": true,
+    "gafilter_kernel_size": 9,
+    "lambda_phase": 1.0,
+    "save_every": 1000,
+    "seed": 42
+  },
+  "experiments": [
+    {
+      "id": "standard_5k",
+      "description": "Standard mode: mel from clean FLAC → BigVGAN → reconstruct FLAC. No LoRA. Directly improves VAE roundtrip quality."
+    },
+    {
+      "id": "disc_fm_5k",
+      "description": "Standard mode + discriminator feature matching. Tests if perceptual loss helps on clean audio reconstruction.",
+      "discriminator_path": "/media/unraid/davinci/Selva/BJ/experiment/bigvgan_discriminator_optimizer.pt"
+    },
+    {
+      "id": "standard_10k",
+      "description": "Extended 10k steps. More data passes on 134 clips may extract more from the optimized dataset.",
+      "steps": 10000
+    }
+  ]
+}
